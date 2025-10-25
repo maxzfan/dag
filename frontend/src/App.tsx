@@ -51,6 +51,7 @@ interface JournalEntry {
   title: string
   timestamp: string
   messages: Message[]
+  summary?: string
 }
 
 function App() {
@@ -62,6 +63,8 @@ function App() {
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
   const [selectedEntry, setSelectedEntry] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [showSummary, setShowSummary] = useState(false)
+  const [currentSummary, setCurrentSummary] = useState('')
   
   const audioPlaybackRef = useRef<HTMLAudioElement>(null)
   const conversationRef = useRef<HTMLDivElement>(null)
@@ -297,19 +300,52 @@ function App() {
     }
   }
 
-  const saveJournalEntry = () => {
+  const saveJournalEntry = async () => {
     if (messages.length === 0) return
 
     setIsSaving(true)
     
-    const newEntry: JournalEntry = {
-      id: Date.now().toString(),
-      title: `Journal ${new Date().toLocaleDateString()}`,
-      timestamp: new Date().toISOString(),
-      messages: [...messages]
-    }
+    try {
+      // Generate a dynamic title based on conversation content
+      const conversationText = messages.map(msg => `${msg.sender}: ${msg.text}`).join('\n')
+      
+      const response = await fetch(`${apiBaseUrl}/generate-title`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: conversationText })
+      })
 
-    setJournalEntries(prev => [newEntry, ...prev])
+      let title = `Journal ${new Date().toLocaleDateString()}` // fallback title
+      
+      if (response.ok) {
+        const data = await response.json()
+        title = data.title || title
+      } else {
+        console.warn('Failed to generate title, using fallback')
+      }
+      
+      const newEntry: JournalEntry = {
+        id: Date.now().toString(),
+        title: title,
+        timestamp: new Date().toISOString(),
+        messages: [...messages]
+      }
+
+      setJournalEntries(prev => [newEntry, ...prev])
+      
+    } catch (error) {
+      console.error('Error generating title:', error)
+      // Use fallback title if title generation fails
+      const newEntry: JournalEntry = {
+        id: Date.now().toString(),
+        title: `Journal ${new Date().toLocaleDateString()}`,
+        timestamp: new Date().toISOString(),
+        messages: [...messages]
+      }
+      setJournalEntries(prev => [newEntry, ...prev])
+    }
     
     // Reset animation after delay
     setTimeout(() => {
@@ -322,6 +358,14 @@ function App() {
     if (entry) {
       setMessages(entry.messages)
       setSelectedEntry(entryId)
+    }
+  }
+
+  const showConversationSummary = (entryId: string) => {
+    const entry = journalEntries.find(e => e.id === entryId)
+    if (entry && entry.summary) {
+      setCurrentSummary(entry.summary)
+      setShowSummary(true)
     }
   }
 
@@ -557,7 +601,19 @@ function App() {
 
               {/* Current Messages */}
               <div className="lg:col-span-2">
-                <h3 className="text-sm font-medium mb-2">Current Conversation</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-medium">Current Conversation</h3>
+                  {selectedEntry && journalEntries.find(e => e.id === selectedEntry)?.summary && (
+                    <Button
+                      onClick={() => showConversationSummary(selectedEntry)}
+                      variant="outline"
+                      size="sm"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    >
+                      View Summary
+                    </Button>
+                  )}
+                </div>
                 <ScrollArea className="h-[300px]">
                   <div 
                     ref={conversationRef}
@@ -609,6 +665,37 @@ function App() {
       <div className="hidden">
         <audio ref={audioPlaybackRef} controls />
       </div>
+
+      {/* Summary Modal */}
+      {showSummary && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Conversation Summary</h2>
+              <Button
+                onClick={() => setShowSummary(false)}
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </Button>
+            </div>
+            <div className="prose prose-sm max-w-none text-gray-700 dark:text-gray-300">
+              <p className="whitespace-pre-wrap leading-relaxed">{currentSummary}</p>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={() => setShowSummary(false)}
+                variant="outline"
+                className="text-gray-600 hover:text-gray-800"
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
