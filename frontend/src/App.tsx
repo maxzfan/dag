@@ -37,7 +37,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Mic, MessageSquare, History, Trash2 } from 'lucide-react'
+import { Mic, MessageSquare, History, Trash2, Bot } from 'lucide-react'
 
 interface Message {
   id: string
@@ -55,6 +55,8 @@ interface JournalEntry {
 }
 
 function App() {
+  const [mode, setMode] = useState<'agent' | 'journal'>('journal')
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [status, setStatus] = useState('Click to start recording')
   const [messages, setMessages] = useState<Message[]>([])
@@ -71,6 +73,9 @@ function App() {
   const recognitionRef = useRef<SpeechRecognition | null>(null)
 
   const apiBaseUrl = 'http://localhost:5001'
+
+  // Available agents for the dashboard - will be populated by agent mode system
+  const availableAgents = []
 
   useEffect(() => {
     checkMicrophonePermission()
@@ -427,31 +432,169 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black">
+    <div className="min-h-screen bg-white dark:bg-gray-900">
       {/* Header */}
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-gray-200 dark:border-gray-800">
-        <div className="flex items-center gap-2 px-4">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-800 px-4">
+        <div className="flex items-center gap-2">
           <div className="flex items-center space-x-3">
             <img 
               src="/assets/icons/nexus-icon.png" 
               alt="Daggy" 
               className="w-8 h-8"
             />
-            <h1 className="text-xl font-bold text-yellow-100">
-              Daggy
+            <h1 className="text-xl font-bold bg-gradient-to-r from-amber-50 to-amber-100 bg-clip-text text-transparent">
+              DAGR
             </h1>
           </div>
+        </div>
+        
+        {/* Mode Toggle Links */}
+        <div className="flex items-center gap-6">
+          <button
+            onClick={() => setMode('agent')}
+            className={`text-sm font-medium transition-colors hover:text-amber-300 ${
+              mode === 'agent' 
+                ? 'text-amber-300' 
+                : 'text-gray-300 hover:text-white'
+            }`}
+          >
+            Agent
+          </button>
+          <button
+            onClick={() => setMode('journal')}
+            className={`text-sm font-medium transition-colors hover:text-amber-300 ${
+              mode === 'journal' 
+                ? 'text-amber-300' 
+                : 'text-gray-300 hover:text-white'
+            }`}
+          >
+            Journal
+          </button>
         </div>
       </header>
 
       {/* Main Content */}
       <div className="flex flex-1 flex-col gap-4 p-4">
+        {mode === 'agent' ? (
+          /* Agent Mode - Dashboard Layout */
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
+            {/* Left Side - Voice Button */}
+            <div className="lg:col-span-1">
+              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                    <Mic className="w-5 h-5" />
+                    Voice Control
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center space-y-6 h-full">
+                  <Badge 
+                    variant={isRecording ? "destructive" : isProcessing ? "secondary" : "default"}
+                    className={`text-sm px-4 py-2 ${isRecording ? 'animate-pulse' : ''} ${
+                      !isRecording && !isProcessing ? 'bg-gradient-to-r from-amber-50 to-amber-100 text-gray-700 border-amber-200' : ''
+                    }`}
+                  >
+                    {status}
+                  </Badge>
+                  
+                  <Button
+                    onClick={handleToggleRecording}
+                    disabled={isProcessing}
+                    size="lg"
+                    className={`
+                      w-24 h-24 rounded-full text-gray-800 font-semibold text-lg
+                      transition-all duration-200 ease-in-out
+                      ${isRecording 
+                        ? 'bg-red-500 hover:bg-red-600 scale-110' 
+                        : 'bg-gradient-to-r from-amber-50 to-amber-100 hover:from-amber-100 hover:to-amber-200 hover:scale-105'
+                      }
+                      ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                      active:scale-95
+                    `}
+                  >
+                    <Mic className="w-8 h-8" />
+                  </Button>
+
+                  {selectedAgent && (
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Active Agent:</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {availableAgents.find(a => a.id === selectedAgent)?.name}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Right Side - Agent List */}
+            <div className="lg:col-span-2">
+              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-full">
+                <CardHeader>
+                  <CardTitle className="text-gray-900 dark:text-white">Available Agents</CardTitle>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Agents will appear here when the system determines which ones to deploy
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[400px]">
+                    {availableAgents.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                        <Bot className="w-16 h-16 text-gray-400 dark:text-gray-500 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                          No agents available
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+                          The agent mode system will analyze your needs and deploy specialized agents here.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {availableAgents.map((agent) => (
+                          <div
+                            key={agent.id}
+                            className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700 ${
+                              selectedAgent === agent.id
+                                ? 'bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-300'
+                                : 'hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`}
+                            onClick={() => setSelectedAgent(agent.id)}
+                          >
+                            <div className="text-xl">{agent.icon}</div>
+                            <div className="flex-1">
+                              <h3 className="font-medium text-gray-900 dark:text-white">
+                                {agent.name}
+                              </h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-300">
+                                {agent.description}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className={`w-2 h-2 rounded-full ${
+                                agent.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
+                              }`}></div>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                                {agent.status}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        ) : (
+          /* Journal Mode - Current UI */
+          <>
         {/* Top Row - Voice Button and Transcript */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Voice Button - Top Left */}
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                 <Mic className="w-5 h-5" />
                 Voice Control
               </CardTitle>
@@ -459,7 +602,9 @@ function App() {
             <CardContent className="flex flex-col items-center space-y-4">
               <Badge 
                 variant={isRecording ? "destructive" : isProcessing ? "secondary" : "default"}
-                className={`text-sm px-4 py-2 ${isRecording ? 'animate-pulse' : ''}`}
+                className={`text-sm px-4 py-2 ${isRecording ? 'animate-pulse' : ''} ${
+                  !isRecording && !isProcessing ? 'bg-gradient-to-r from-amber-50 to-amber-100 text-gray-700 border-amber-200' : ''
+                }`}
               >
                 {status}
               </Badge>
@@ -469,11 +614,11 @@ function App() {
                 disabled={isProcessing}
                 size="lg"
                 className={`
-                  w-24 h-24 rounded-full text-black font-semibold text-lg
+                  w-24 h-24 rounded-full text-gray-800 font-semibold text-lg
                   transition-all duration-200 ease-in-out
                   ${isRecording 
-                    ? 'bg-red-500 hover:bg-red-600 scale-110 shadow-2xl shadow-red-500/50' 
-                    : 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 hover:scale-105 shadow-xl shadow-yellow-500/30'
+                    ? 'bg-red-500 hover:bg-red-600 scale-110' 
+                    : 'bg-gradient-to-r from-amber-50 to-amber-100 hover:from-amber-100 hover:to-amber-200 hover:scale-105'
                   }
                   ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                   active:scale-95
@@ -496,7 +641,7 @@ function App() {
                   variant="outline"
                   size="sm"
                   disabled={isSaving}
-                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                  className="text-black hover:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   New Chat
                 </Button>
@@ -514,9 +659,9 @@ function App() {
           </Card>
 
           {/* Transcript Box - Top Right */}
-          <Card>
+          <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                 <MessageSquare className="w-5 h-5" />
                 Transcript
               </CardTitle>
@@ -538,9 +683,9 @@ function App() {
         </div>
 
         {/* Bottom Half - Journal History */}
-        <Card className="flex-1">
+        <Card className="flex-1 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
               <History className="w-5 h-5" />
               Journal Logs
             </CardTitle>
@@ -549,16 +694,16 @@ function App() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[400px]">
               {/* Journal Entries List */}
               <div className="lg:col-span-1">
-                <h3 className="text-sm font-medium mb-2">Previous Journal Entries</h3>
+                <h3 className="text-sm font-medium mb-2 text-gray-900 dark:text-white">Previous Journal Entries</h3>
                 <ScrollArea className="h-[300px]">
                   <div className="space-y-2">
                     {journalEntries.map((entry, index) => (
                       <Card 
                         key={entry.id}
-                        className={`cursor-pointer transition-colors ${
+                        className={`cursor-pointer transition-colors bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 ${
                           selectedEntry === entry.id 
                             ? 'bg-yellow-100 dark:bg-yellow-900/20 border-yellow-500' 
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                         } ${
                           index === 0 && isSaving ? 'chat-history-enter' : ''
                         }`}
@@ -567,11 +712,11 @@ function App() {
                         <CardContent className="p-3">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
-                              <div className="text-sm font-medium">{entry.title}</div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">{entry.title}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
                                 {new Date(entry.timestamp).toLocaleString()}
                               </div>
-                              <div className="text-xs text-gray-400">
+                              <div className="text-xs text-gray-400 dark:text-gray-500">
                                 {entry.messages.length} messages
                               </div>
                             </div>
@@ -600,9 +745,9 @@ function App() {
               </div>
 
               {/* Current Messages */}
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-2 -mt-2">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium">Current Conversation</h3>
+                  <h3 className="text-sm font-medium text-white">Current Conversation</h3>
                   {selectedEntry && journalEntries.find(e => e.id === selectedEntry)?.summary && (
                     <Button
                       onClick={() => showConversationSummary(selectedEntry)}
@@ -631,7 +776,7 @@ function App() {
                         <div
                           className={`max-w-[80%] rounded-xl p-4 ${
                             message.sender === 'user'
-                              ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-black'
+                              ? 'bg-gradient-to-r from-amber-50 to-amber-100 text-gray-700'
                               : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
                           }`}
                         >
@@ -659,6 +804,8 @@ function App() {
             </div>
           </CardContent>
         </Card>
+          </>
+        )}
       </div>
 
       {/* Hidden Audio */}

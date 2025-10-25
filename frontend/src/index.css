@@ -81,11 +81,11 @@
   }
   
   .gradient-text {
-    @apply bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-amber-50 to-amber-100 bg-clip-text text-transparent;
   }
   
   .gradient-button {
-    @apply bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black shadow-lg shadow-yellow-500/25;
+    @apply bg-gradient-to-r from-amber-50 to-amber-100 hover:from-amber-100 hover:to-amber-200 text-gray-700 shadow-lg shadow-amber-50/25;
   }
   
   .modern-shadow {
@@ -149,7 +149,7 @@
   
   /* Message bubbles */
   .message-user {
-    @apply bg-gradient-to-r from-yellow-500 to-yellow-600 text-black;
+    @apply bg-gradient-to-r from-amber-50 to-amber-100 text-gray-700;
   }
   
   .message-ai {
