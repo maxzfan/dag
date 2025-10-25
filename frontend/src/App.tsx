@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Mic, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
@@ -255,60 +254,83 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col">
-      {/* Header */}
-      <div className="flex-shrink-0 p-6 text-center">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent mb-2">
-          Nexus
-        </h1>
-        <p className="text-slate-400">Advanced Voice AI Platform</p>
+    <div className="min-h-screen bg-white dark:bg-black flex flex-col items-center justify-center px-6">
+      {/* Header with Logo */}
+      <div className="absolute top-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center">
+        <div className="flex items-center space-x-3">
+          <img 
+            src="/assets/icons/nexus-icon.png" 
+            alt="Nexus" 
+            className="w-12 h-12"
+          />
+          <h1 className="text-3xl font-bold text-yellow-100">
+            Nexus
+          </h1>
+        </div>
+      </div>
+      
+      {/* Status */}
+      <div className="mb-8">
+        <Badge 
+          variant={isRecording ? "destructive" : isProcessing ? "secondary" : "default"}
+          className={`text-sm px-4 py-2 ${isRecording ? 'animate-pulse' : ''}`}
+        >
+          {status}
+        </Badge>
       </div>
 
-      {/* Main Interface */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6">
-        {/* Status */}
-        <div className="mb-8">
-          <Badge 
-            variant={isRecording ? "destructive" : isProcessing ? "secondary" : "default"}
-            className={`text-sm px-4 py-2 ${isRecording ? 'animate-pulse' : ''}`}
-          >
-            {status}
-          </Badge>
-        </div>
+      {/* Main Recording Button */}
+      <div className="mb-8">
+        <Button
+          onClick={handleToggleRecording}
+          disabled={isProcessing}
+          className={`
+            w-32 h-32 rounded-full text-black font-semibold text-lg
+            transition-all duration-200 ease-in-out
+            ${isRecording 
+              ? 'bg-red-500 hover:bg-red-600 scale-110 shadow-2xl shadow-red-500/50' 
+              : 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 hover:scale-105 shadow-xl shadow-yellow-500/30'
+            }
+            ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+            active:scale-95
+          `}
+        >
+          <Mic className="w-8 h-8" />
+        </Button>
+      </div>
 
-        {/* Toggle Recording Button */}
-        <div className="mb-8">
-          <Button
-            onClick={handleToggleRecording}
-            disabled={isProcessing}
-            className={`
-              w-32 h-32 rounded-full text-white font-semibold text-lg
-              transition-all duration-200 ease-in-out
-              ${isRecording 
-                ? 'bg-red-500 hover:bg-red-600 scale-110 shadow-2xl shadow-red-500/50' 
-                : 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 hover:scale-105 shadow-xl shadow-emerald-500/30'
-              }
-              ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-              active:scale-95
-            `}
-          >
-            <Mic className="w-8 h-8" />
-          </Button>
-        </div>
-
-        {/* Chat Toggle */}
-        {messages.length > 0 && (
-          <Collapsible open={isChatOpen} onOpenChange={setIsChatOpen}>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" className="mb-4">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                View Conversation
-                {isChatOpen ? <ChevronUp className="w-4 h-4 ml-2" /> : <ChevronDown className="w-4 h-4 ml-2" />}
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <Card className="w-full max-w-2xl">
-                <CardContent className="p-4">
+      {/* Conversation Section */}
+      {messages.length > 0 && (
+        <div className="w-full max-w-2xl">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Conversation</h3>
+                <div className="flex items-center space-x-2">
+                  <Collapsible open={isChatOpen} onOpenChange={setIsChatOpen}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        {isChatOpen ? 'Hide' : 'Show'} Messages
+                        {isChatOpen ? <ChevronUp className="w-4 h-4 ml-2" /> : <ChevronDown className="w-4 h-4 ml-2" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                  </Collapsible>
+                  <Button
+                    onClick={resetConversation}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <Collapsible open={isChatOpen} onOpenChange={setIsChatOpen}>
+              <CollapsibleContent>
+                <div className="p-4">
                   <div 
                     ref={conversationRef}
                     className="max-h-96 overflow-y-auto space-y-4"
@@ -319,37 +341,26 @@ function App() {
                         className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
                         <div
-                          className={`max-w-[80%] rounded-lg p-3 ${
+                          className={`max-w-[80%] rounded-xl p-4 ${
                             message.sender === 'user'
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-slate-100 text-slate-900'
+                              ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-black'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
                           }`}
                         >
-                          <div className="text-xs font-medium mb-1 opacity-80">
+                          <div className="text-xs font-medium mb-2 opacity-80">
                             {message.sender === 'user' ? 'You' : 'Nexus AI'}
                           </div>
-                          <div className="text-sm">{message.text}</div>
+                          <div className="text-sm leading-relaxed">{message.text}</div>
                         </div>
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            </CollapsibleContent>
-          </Collapsible>
-        )}
-
-        {/* Reset Button */}
-        {messages.length > 0 && (
-          <Button
-            onClick={resetConversation}
-            variant="outline"
-            className="mt-4"
-          >
-            Reset Conversation
-          </Button>
-        )}
-      </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </div>
+      )}
 
       {/* Hidden Audio */}
       <div className="hidden">

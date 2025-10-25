@@ -230,7 +230,7 @@ def conversation():
                 {"role": "system", "content": SYSTEM_PROMPT},
                 *conversation_history
             ],
-            "max_tokens": 1000
+            "max_tokens": 500
         }
 
         logger.info(f"OpenRouter payload: {payload}")
@@ -244,11 +244,7 @@ def conversation():
         
         response.raise_for_status()
         ai_response = response.json()["choices"][0]["message"]["content"]
-        
-        # Limit response length for better speech synthesis
-        if len(ai_response) > 150:
-            ai_response = ai_response[:150] + "..."
-            logger.info(f"Truncated response to 150 characters")
+    
 
         # Add AI response to conversation history
         conversation_history.append({"role": "assistant", "content": ai_response})
