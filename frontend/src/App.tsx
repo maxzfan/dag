@@ -106,7 +106,7 @@ function App() {
           currentTranscript += transcript
         }
         
-        // Update live transcript with current results
+        // Update live transcript with current results (not accumulating)
         setLiveTranscript(currentTranscript)
       }
       
@@ -168,7 +168,7 @@ function App() {
 
   const startRecording = async () => {
     try {
-      // Clear previous transcript
+      // Clear transcript only when starting a completely new session
       setLiveTranscript('')
       
       // Start live speech recognition
@@ -221,6 +221,7 @@ function App() {
     }
   }
 
+
   const processRecording = async () => {
     try {
       // Use only the live transcript - no backend fallback
@@ -254,7 +255,7 @@ function App() {
         setStatus('No speech detected. Try speaking louder or longer.')
       }
 
-      // Clear live transcript after processing
+      // Clear live transcript after processing the message
       setLiveTranscript('')
       setIsProcessing(false)
       setStatus('Click to start recording')
