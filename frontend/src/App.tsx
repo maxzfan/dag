@@ -55,7 +55,7 @@ interface JournalEntry {
 }
 
 function App() {
-  const [mode, setMode] = useState<'agent' | 'journal'>('journal')
+  const [mode, setMode] = useState<'agent' | 'journal'>('agent')
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [status, setStatus] = useState('Click to start recording')
@@ -434,7 +434,7 @@ function App() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900">
       {/* Header */}
-      <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-gray-200 dark:border-gray-800 px-4">
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-gray-200 dark:border-gray-800 px-4">
         <div className="flex items-center gap-2">
           <div className="flex items-center space-x-3">
             <img 
@@ -446,30 +446,30 @@ function App() {
               DAGR
             </h1>
           </div>
-        </div>
-        
-        {/* Mode Toggle Links */}
-        <div className="flex items-center gap-6">
-          <button
-            onClick={() => setMode('agent')}
-            className={`text-sm font-medium transition-colors hover:text-amber-300 ${
-              mode === 'agent' 
-                ? 'text-amber-300' 
-                : 'text-gray-300 hover:text-white'
-            }`}
-          >
-            Agent
-          </button>
-          <button
-            onClick={() => setMode('journal')}
-            className={`text-sm font-medium transition-colors hover:text-amber-300 ${
-              mode === 'journal' 
-                ? 'text-amber-300' 
-                : 'text-gray-300 hover:text-white'
-            }`}
-          >
-            Journal
-          </button>
+          
+          {/* Mode Toggle Links - moved next to name */}
+          <div className="flex items-center gap-6 ml-6">
+            <button
+              onClick={() => setMode('agent')}
+              className={`text-sm font-medium transition-colors hover:text-amber-300 ${
+                mode === 'agent' 
+                  ? 'text-amber-300' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              Agent
+            </button>
+            <button
+              onClick={() => setMode('journal')}
+              className={`text-sm font-medium transition-colors hover:text-amber-300 ${
+                mode === 'journal' 
+                  ? 'text-amber-300' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              Journal
+            </button>
+          </div>
         </div>
       </header>
 
@@ -477,17 +477,17 @@ function App() {
       <div className="flex flex-1 flex-col gap-4 p-4">
         {mode === 'agent' ? (
           /* Agent Mode - Dashboard Layout */
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
             {/* Left Side - Voice Button */}
             <div className="lg:col-span-1">
-              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-full">
+              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-full flex flex-col">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
                     <Mic className="w-5 h-5" />
                     Voice Control
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-col items-center justify-center space-y-6 h-full">
+                <CardContent className="flex flex-col items-center justify-center space-y-6 h-full min-h-0">
                   <Badge 
                     variant={isRecording ? "destructive" : isProcessing ? "secondary" : "default"}
                     className={`text-sm px-4 py-2 ${isRecording ? 'animate-pulse' : ''} ${
@@ -529,7 +529,7 @@ function App() {
 
             {/* Right Side - Agent List */}
             <div className="lg:col-span-2">
-              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-full">
+              <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-full flex flex-col">
                 <CardHeader>
                   <CardTitle className="text-gray-900 dark:text-white">Available Agents</CardTitle>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -537,9 +537,9 @@ function App() {
                   </p>
                 </CardHeader>
                 <CardContent>
-                  <ScrollArea className="h-[400px]">
+                   <div className="h-[calc(100vh-12rem)] overflow-hidden">
                     {availableAgents.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                      <div className="flex flex-col items-center justify-center h-full text-center">
                         <Bot className="w-16 h-16 text-gray-400 dark:text-gray-500 mb-4" />
                         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                           No agents available
@@ -581,7 +581,7 @@ function App() {
                         ))}
                       </div>
                     )}
-                  </ScrollArea>
+                  </div>
                 </CardContent>
               </Card>
             </div>
