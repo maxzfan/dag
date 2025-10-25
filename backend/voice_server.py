@@ -8,7 +8,10 @@ from fish_audio_sdk import Session, TTSRequest
 import requests
 from dotenv import load_dotenv
 import logging
-from sysprompt import SYSTEM_PROMPT
+#from sysprompt import SYSTEM_PROMPT
+from pathlib import Path
+SYSTEM_PROMPT = Path(__file__).with_name("systemprompt.md").read_text(encoding="utf-8")
+
 
 # Load environment variables
 load_dotenv()
