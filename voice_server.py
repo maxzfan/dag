@@ -8,6 +8,7 @@ from fish_audio_sdk import Session, TTSRequest
 import requests
 from dotenv import load_dotenv
 import logging
+from sysprompt import SYSTEM_PROMPT
 
 # Load environment variables
 load_dotenv()
@@ -223,10 +224,10 @@ def conversation():
         payload = {
             "model": "anthropic/claude-3-haiku",
             "messages": [
-                {"role": "system", "content": "You are a helpful AI assistant having a voice conversation. Keep responses conversational and concise. Limit your response to 2-3 sentences maximum."},
+                {"role": "system", "content": SYSTEM_PROMPT},
                 *conversation_history
             ],
-            "max_tokens": 100
+            "max_tokens": 1000
         }
 
         logger.info(f"OpenRouter payload: {payload}")
