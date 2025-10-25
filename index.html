@@ -4,12 +4,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title></title>
+  <title>Voice AI Conversation</title>
   <link rel="stylesheet" href="css/style.css">
-  <meta name="description" content="">
+  <meta name="description" content="Voice AI conversation with Fish Audio">
 
-  <meta property="og:title" content="">
-  <meta property="og:type" content="">
+  <meta property="og:title" content="Voice AI Conversation">
+  <meta property="og:type" content="website">
   <meta property="og:url" content="">
   <meta property="og:image" content="">
   <meta property="og:image:alt" content="">
@@ -23,11 +23,32 @@
 </head>
 
 <body>
+  <div class="container">
+    <header>
+      <h1>Voice AI Conversation</h1>
+      <p>Talk with AI using Fish Audio</p>
+    </header>
 
-  <!-- Add your site or application content here -->
-  <p>Hello world! This is HTML5 Boilerplate.</p>
+    <main class="conversation-area">
+      <div id="status" class="status">Ready to start conversation</div>
+
+      <div class="controls">
+        <button id="startRecord" class="btn btn-primary">🎤 Start Recording</button>
+        <button id="stopRecord" class="btn btn-danger" disabled>⏹️ Stop Recording</button>
+        <button id="resetConversation" class="btn btn-secondary">🔄 Reset Conversation</button>
+      </div>
+
+      <div id="conversation" class="conversation">
+        <!-- Conversation messages will appear here -->
+      </div>
+
+      <div class="audio-controls">
+        <audio id="audioPlayback" controls style="display: none;"></audio>
+      </div>
+    </main>
+  </div>
+
   <script src="js/app.js"></script>
-
 </body>
 
 </html>

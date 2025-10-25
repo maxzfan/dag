@@ -1,0 +1,6 @@
+fish-audio-sdk
+flask
+flask-cors
+openrouter
+python-dotenv
+requests
