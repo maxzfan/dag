@@ -80,6 +80,49 @@ def save_conversation_entry(conversation_id: str, user_text: str, ai_summary: st
         "model": extra.get("model", "anthropic/claude-3-haiku") if extra else "anthropic/claude-3-haiku"
     })
     
+    # Generate summary if this is the first message or if we have enough content
+    if len(conversation_data["messages"]) == 1 or len(conversation_data["messages"]) % 3 == 0:
+        try:
+            # Build conversation text for summary
+            conversation_text = ""
+            for msg in conversation_data["messages"]:
+                conversation_text += f"User: {msg.get('user_text', '')}\n"
+                conversation_text += f"AI: {msg.get('ai_summary', '')}\n"
+            
+            if conversation_text.strip():
+                # Generate summary using the same logic as the endpoint
+                summary_prompt = f"""Based on this conversation, generate a comprehensive summary in 2-4 sentences that captures the key points, main topics discussed, and outcomes. The summary should be informative and provide a good overview of what was discussed.
+
+Conversation:
+{conversation_text.strip()}
+
+Summary:"""
+                
+                headers = {
+                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                
+                payload = {
+                    "model": "anthropic/claude-3-haiku",
+                    "messages": [
+                        {"role": "user", "content": summary_prompt}
+                    ],
+                    "max_tokens": 150,
+                    "temperature": 0.7
+                }
+                
+                summary_response = requests.post(OPENROUTER_URL, headers=headers, json=payload)
+                
+                if summary_response.status_code == 200:
+                    summary = summary_response.json()["choices"][0]["message"]["content"].strip()
+                    conversation_data["summary"] = summary.strip('"\'')
+                    logger.info(f"Generated summary for conversation {conversation_id}")
+                else:
+                    logger.warning(f"Failed to generate summary for conversation {conversation_id}")
+        except Exception as e:
+            logger.warning(f"Error generating summary for conversation {conversation_id}: {e}")
+    
     # Update timestamp
     conversation_data["updated_at"] = now.isoformat()
     
@@ -422,11 +465,66 @@ def get_journal_entries():
                             }
                         ])
                     
+                    # Generate title if not already present or if it's the default format
+                    title = conversation_data.get("title", "")
+                    if not title or title.startswith("Journal ") or title.startswith("Chat "):
+                        # Generate a dynamic title based on conversation content
+                        conversation_text = ""
+                        for msg in conversation_data.get("messages", []):
+                            conversation_text += f"User: {msg.get('user_text', '')}\n"
+                            conversation_text += f"AI: {msg.get('ai_summary', '')}\n"
+                        
+                        if conversation_text.strip():
+                            try:
+                                title_prompt = f"""Based on this conversation, generate a short, descriptive title (3-6 words max) that captures the main topic or theme. The title should be concise and meaningful.
+
+Conversation:
+{conversation_text.strip()}
+
+Title:"""
+                                
+                                headers = {
+                                    "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                                    "Content-Type": "application/json"
+                                }
+                                
+                                payload = {
+                                    "model": "anthropic/claude-3-haiku",
+                                    "messages": [
+                                        {"role": "user", "content": title_prompt}
+                                    ],
+                                    "max_tokens": 20,
+                                    "temperature": 0.7
+                                }
+                                
+                                title_response = requests.post(OPENROUTER_URL, headers=headers, json=payload)
+                                
+                                if title_response.status_code == 200:
+                                    generated_title = title_response.json()["choices"][0]["message"]["content"].strip()
+                                    title = generated_title.strip('"\'')
+                                    if len(title) > 50:
+                                        title = title[:47] + "..."
+                                    
+                                    # Update the conversation file with the new title
+                                    conversation_data["title"] = title
+                                    with conversation_file.open("w", encoding="utf-8") as f:
+                                        json.dump(conversation_data, f, ensure_ascii=False, indent=2)
+                                    
+                                    logger.info(f"Generated and saved new title for {conversation_data['id']}: {title}")
+                                else:
+                                    title = f"Chat {conversation_data['created_at'][:10]}"
+                            except Exception as e:
+                                logger.warning(f"Failed to generate title for {conversation_data['id']}: {e}")
+                                title = f"Chat {conversation_data['created_at'][:10]}"
+                        else:
+                            title = f"Chat {conversation_data['created_at'][:10]}"
+                    
                     entry = {
                         "id": conversation_data["id"],
-                        "title": conversation_data.get("title", f"Journal {conversation_data['created_at'][:10]}"),
+                        "title": title,
                         "timestamp": conversation_data["updated_at"],
-                        "messages": messages
+                        "messages": messages,
+                        "summary": conversation_data.get("summary", "")
                     }
                     entries.append(entry)
                     
@@ -441,6 +539,131 @@ def get_journal_entries():
         
     except Exception as e:
         logger.error(f"Error reading journal entries: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/journal-entries/<entry_id>', methods=['DELETE'])
+def delete_journal_entry(entry_id):
+    """Delete a journal entry by removing the corresponding JSON file"""
+    try:
+        # Find the conversation file for this entry ID
+        conversation_file = DATA_DIR / f"conversation-{entry_id}.json"
+        
+        if not conversation_file.exists():
+            logger.warning(f"Conversation file not found: {conversation_file}")
+            return jsonify({"error": "Journal entry not found"}), 404
+        
+        # Delete the file
+        conversation_file.unlink()
+        logger.info(f"Deleted conversation file: {conversation_file}")
+        
+        return jsonify({"status": "deleted", "entry_id": entry_id})
+        
+    except Exception as e:
+        logger.error(f"Error deleting journal entry {entry_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/generate-title', methods=['POST'])
+def generate_title():
+    """Generate a short title for a conversation based on its content"""
+    try:
+        data = request.get_json()
+        conversation_text = data.get('text', '')
+        
+        if not conversation_text:
+            return jsonify({"error": "No conversation text provided"}), 400
+        
+        # Create a prompt for title generation
+        title_prompt = f"""Based on this conversation, generate a short, descriptive title (3-6 words max) that captures the main topic or theme. The title should be concise and meaningful.
+
+Conversation:
+{conversation_text}
+
+Title:"""
+        
+        # Use OpenRouter to generate the title
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "anthropic/claude-3-haiku",
+            "messages": [
+                {"role": "user", "content": title_prompt}
+            ],
+            "max_tokens": 20,
+            "temperature": 0.7
+        }
+        
+        response = requests.post(OPENROUTER_URL, headers=headers, json=payload)
+        
+        if response.status_code != 200:
+            logger.error(f"OpenRouter API error for title generation: {response.status_code} - {response.text}")
+            return jsonify({"error": f"Title generation failed: {response.status_code}"}), 500
+        
+        response.raise_for_status()
+        title = response.json()["choices"][0]["message"]["content"].strip()
+        
+        # Clean up the title (remove quotes, extra whitespace, etc.)
+        title = title.strip('"\'')
+        if len(title) > 50:  # Truncate if too long
+            title = title[:47] + "..."
+        
+        return jsonify({"title": title})
+        
+    except Exception as e:
+        logger.error(f"Error generating title: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/generate-summary', methods=['POST'])
+def generate_summary():
+    """Generate a long-form summary (2-4 sentences) for a conversation"""
+    try:
+        data = request.get_json()
+        conversation_text = data.get('text', '')
+        
+        if not conversation_text:
+            return jsonify({"error": "No conversation text provided"}), 400
+        
+        # Create a prompt for summary generation
+        summary_prompt = f"""Based on this conversation, generate a comprehensive summary in 2-4 sentences that captures the key points, main topics discussed, and outcomes. The summary should be informative and provide a good overview of what was discussed.
+
+Conversation:
+{conversation_text}
+
+Summary:"""
+        
+        # Use OpenRouter to generate the summary
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "anthropic/claude-3-haiku",
+            "messages": [
+                {"role": "user", "content": summary_prompt}
+            ],
+            "max_tokens": 150,
+            "temperature": 0.7
+        }
+        
+        response = requests.post(OPENROUTER_URL, headers=headers, json=payload)
+        
+        if response.status_code != 200:
+            logger.error(f"OpenRouter API error for summary generation: {response.status_code} - {response.text}")
+            return jsonify({"error": f"Summary generation failed: {response.status_code}"}), 500
+        
+        response.raise_for_status()
+        summary = response.json()["choices"][0]["message"]["content"].strip()
+        
+        # Clean up the summary (remove quotes, extra whitespace, etc.)
+        summary = summary.strip('"\'')
+        
+        return jsonify({"summary": summary})
+        
+    except Exception as e:
+        logger.error(f"Error generating summary: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
