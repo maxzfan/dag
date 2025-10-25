@@ -60,6 +60,7 @@ function App() {
   const [isRecording, setIsRecording] = useState(false)
   const [status, setStatus] = useState('Click to start recording')
   const [messages, setMessages] = useState<Message[]>([])
+  const [agentMessages, setAgentMessages] = useState<Message[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [liveTranscript, setLiveTranscript] = useState('')
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
@@ -67,6 +68,7 @@ function App() {
   const [isSaving, setIsSaving] = useState(false)
   const [showSummary, setShowSummary] = useState(false)
   const [currentSummary, setCurrentSummary] = useState('')
+  const [showAgentChatHistory, setShowAgentChatHistory] = useState(false)
   
   const audioPlaybackRef = useRef<HTMLAudioElement>(null)
   const conversationRef = useRef<HTMLDivElement>(null)
@@ -75,7 +77,7 @@ function App() {
   const apiBaseUrl = 'http://localhost:5001'
 
   // Available agents for the dashboard - will be populated by agent mode system
-  const availableAgents = []
+  const availableAgents: Array<{id: string, name: string, description: string, icon: string, status: string}> = []
 
   useEffect(() => {
     checkMicrophonePermission()
@@ -231,7 +233,6 @@ function App() {
           text: transcribedText,
           timestamp: new Date()
         }
-        setMessages(prev => [...prev, userMessage])
 
         const aiResponse = await getAIResponse(transcribedText)
         const aiMessage: Message = {
@@ -240,7 +241,13 @@ function App() {
           text: aiResponse,
           timestamp: new Date()
         }
-        setMessages(prev => [...prev, aiMessage])
+
+        // Add messages to the appropriate conversation based on mode
+        if (mode === 'journal') {
+          setMessages(prev => [...prev, userMessage, aiMessage])
+        } else {
+          setAgentMessages(prev => [...prev, userMessage, aiMessage])
+        }
 
         await textToSpeech(aiResponse)
       } else {
@@ -403,13 +410,21 @@ function App() {
         method: 'POST'
       })
 
-      setMessages([])
+      if (mode === 'journal') {
+        setMessages([])
+      } else {
+        setAgentMessages([])
+      }
       setSelectedEntry(null)
       setStatus('Conversation reset. Ready to start fresh!')
 
     } catch (error) {
       console.error('Error resetting conversation:', error)
-      setMessages([])
+      if (mode === 'journal') {
+        setMessages([])
+      } else {
+        setAgentMessages([])
+      }
       setSelectedEntry(null)
       setStatus('Conversation reset locally')
     }
@@ -421,7 +436,11 @@ function App() {
         method: 'POST'
       })
 
-      setMessages([])
+      if (mode === 'journal') {
+        setMessages([])
+      } else {
+        setAgentMessages([])
+      }
       setSelectedEntry(null)
       setStatus('New conversation started. Ready to chat!')
 
@@ -515,12 +534,65 @@ function App() {
                     <Mic className="w-8 h-8" />
                   </Button>
 
+                  {/* Chat History Button */}
+                  <Button
+                    onClick={() => setShowAgentChatHistory(!showAgentChatHistory)}
+                    variant="outline"
+                    size="sm"
+                    className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Chat History
+                  </Button>
+
                   {selectedAgent && (
                     <div className="text-center">
                       <p className="text-sm text-gray-500 dark:text-gray-400">Active Agent:</p>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {availableAgents.find(a => a.id === selectedAgent)?.name}
                       </p>
+                    </div>
+                  )}
+
+                  {/* Agent Chat History Display */}
+                  {showAgentChatHistory && (
+                    <div className="w-full mt-4">
+                      <Card className="bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm text-gray-700 dark:text-gray-300">Agent Conversation</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <ScrollArea className="h-48">
+                            <div className="space-y-3">
+                              {agentMessages.length === 0 ? (
+                                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
+                                  No conversation yet
+                                </p>
+                              ) : (
+                                agentMessages.map((message) => (
+                                  <div
+                                    key={message.id}
+                                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                                  >
+                                    <div
+                                      className={`max-w-[80%] rounded-lg p-3 text-xs ${
+                                        message.sender === 'user'
+                                          ? 'bg-gradient-to-r from-amber-50 to-amber-100 text-gray-700'
+                                          : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
+                                      }`}
+                                    >
+                                      <div className="text-xs font-medium mb-1 opacity-80">
+                                        {message.sender === 'user' ? 'You' : 'Agent'}
+                                      </div>
+                                      <div className="text-xs leading-relaxed">{message.text}</div>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </ScrollArea>
+                        </CardContent>
+                      </Card>
                     </div>
                   )}
                 </CardContent>
