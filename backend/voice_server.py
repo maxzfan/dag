@@ -443,5 +443,26 @@ def get_journal_entries():
         logger.error(f"Error reading journal entries: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/journal-entries/<entry_id>', methods=['DELETE'])
+def delete_journal_entry(entry_id):
+    """Delete a journal entry by removing the corresponding JSON file"""
+    try:
+        # Find the conversation file for this entry ID
+        conversation_file = DATA_DIR / f"conversation-{entry_id}.json"
+        
+        if not conversation_file.exists():
+            logger.warning(f"Conversation file not found: {conversation_file}")
+            return jsonify({"error": "Journal entry not found"}), 404
+        
+        # Delete the file
+        conversation_file.unlink()
+        logger.info(f"Deleted conversation file: {conversation_file}")
+        
+        return jsonify({"status": "deleted", "entry_id": entry_id})
+        
+    except Exception as e:
+        logger.error(f"Error deleting journal entry {entry_id}: {e}")
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

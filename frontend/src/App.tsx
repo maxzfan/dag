@@ -36,7 +36,6 @@ declare global {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Mic, MessageSquare, History, Trash2 } from 'lucide-react'
 
@@ -59,14 +58,11 @@ function App() {
   const [status, setStatus] = useState('Click to start recording')
   const [messages, setMessages] = useState<Message[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  const [transcript, setTranscript] = useState('')
   const [liveTranscript, setLiveTranscript] = useState('')
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
   const [selectedEntry, setSelectedEntry] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
   const audioPlaybackRef = useRef<HTMLAudioElement>(null)
   const conversationRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
@@ -93,25 +89,15 @@ function App() {
       }
       
       recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let interimTranscript = ''
-        let finalTranscript = ''
+        let currentTranscript = ''
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript
-          if (event.results[i].isFinal) {
-            finalTranscript += transcript
-          } else {
-            interimTranscript += transcript
-          }
+          currentTranscript += transcript
         }
         
-        // Update live transcript with interim results
-        setLiveTranscript(interimTranscript)
-        
-        // If we have final results, update the main transcript
-        if (finalTranscript) {
-          setTranscript(prev => prev + finalTranscript)
-        }
+        // Update live transcript with current results
+        setLiveTranscript(currentTranscript)
       }
       
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -172,68 +158,22 @@ function App() {
 
   const startRecording = async () => {
     try {
-      // Clear previous transcripts
+      // Clear previous transcript
       setLiveTranscript('')
-      setTranscript('')
       
-      // Start live speech recognition only if not already started
-      if (recognitionRef.current && !isRecording) {
+      // Start live speech recognition
+      if (recognitionRef.current) {
         try {
           recognitionRef.current.start()
+          setIsRecording(true)
+          setStatus('🎤 Recording... Click to stop')
         } catch (error) {
-          console.warn('Speech recognition already started or failed to start:', error)
+          console.warn('Speech recognition failed to start:', error)
+          setStatus('Error starting speech recognition')
         }
+      } else {
+        setStatus('Speech recognition not available')
       }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100
-        }
-      })
-
-      const mimeTypes = [
-        'audio/webm;codecs=opus',
-        'audio/webm',
-        'audio/mp4',
-        'audio/wav'
-      ]
-
-      let selectedMimeType = ''
-      for (const mimeType of mimeTypes) {
-        if (MediaRecorder.isTypeSupported(mimeType)) {
-          selectedMimeType = mimeType
-          break
-        }
-      }
-
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: selectedMimeType
-      })
-
-      audioChunksRef.current = []
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data)
-        }
-      }
-
-      mediaRecorder.onstop = () => {
-        processRecording()
-        stream.getTracks().forEach(track => track.stop())
-      }
-
-      mediaRecorder.onerror = (event) => {
-        console.error('MediaRecorder error:', event)
-        setStatus('Recording error occurred')
-      }
-
-      mediaRecorder.start(1000)
-      mediaRecorderRef.current = mediaRecorder
-      setIsRecording(true)
-      setStatus('🎤 Recording... Click to stop')
 
     } catch (error) {
       console.error('Error starting recording:', error)
@@ -242,7 +182,7 @@ function App() {
   }
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (isRecording) {
       // Stop speech recognition
       if (recognitionRef.current) {
         try {
@@ -252,10 +192,12 @@ function App() {
         }
       }
       
-      mediaRecorderRef.current.stop()
       setIsRecording(false)
       setStatus('Processing...')
       setIsProcessing(true)
+      
+      // Process the transcript immediately
+      processRecording()
     }
   }
 
@@ -271,28 +213,10 @@ function App() {
 
   const processRecording = async () => {
     try {
-      // Use the live transcript if available, otherwise fall back to backend transcription
-      let transcribedText = transcript.trim()
-      
-      // If we have live transcript but no final transcript, use the live one
-      if (!transcribedText && liveTranscript.trim()) {
-        transcribedText = liveTranscript.trim()
-        setTranscript(transcribedText)
-      }
-      
-      // If still no text, try backend transcription as fallback
-      if (!transcribedText && audioChunksRef.current.length > 0) {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-        
-        if (audioBlob.size > 1000) {
-          transcribedText = await speechToText(audioBlob)
-          if (transcribedText && transcribedText.trim()) {
-            setTranscript(transcribedText)
-          }
-        }
-      }
+      // Use only the live transcript - no backend fallback
+      const transcribedText = liveTranscript.trim()
 
-      if (transcribedText && transcribedText.trim()) {
+      if (transcribedText && transcribedText.length > 0) {
         const userMessage: Message = {
           id: Date.now().toString(),
           sender: 'user',
@@ -327,22 +251,6 @@ function App() {
     }
   }
 
-  const speechToText = async (audioBlob: Blob) => {
-    const formData = new FormData()
-    formData.append('audio', audioBlob, 'recording.webm')
-
-    const response = await fetch(`${apiBaseUrl}/speech-to-text`, {
-      method: 'POST',
-      body: formData
-    })
-
-    if (!response.ok) {
-      throw new Error(`Speech-to-text failed: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    return data.text
-  }
 
   const getAIResponse = async (text: string) => {
     const response = await fetch(`${apiBaseUrl}/conversation`, {
@@ -417,11 +325,26 @@ function App() {
     }
   }
 
-  const deleteJournalEntry = (entryId: string) => {
-    setJournalEntries(prev => prev.filter(e => e.id !== entryId))
-    if (selectedEntry === entryId) {
-      setSelectedEntry(null)
-      setMessages([])
+  const deleteJournalEntry = async (entryId: string) => {
+    try {
+      // Call backend to delete the JSON file
+      const response = await fetch(`${apiBaseUrl}/journal-entries/${entryId}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete journal entry: ${response.statusText}`)
+      }
+
+      // Update local state only after successful backend deletion
+      setJournalEntries(prev => prev.filter(e => e.id !== entryId))
+      if (selectedEntry === entryId) {
+        setSelectedEntry(null)
+        setMessages([])
+      }
+    } catch (error) {
+      console.error('Error deleting journal entry:', error)
+      setStatus('Error deleting journal entry: ' + (error as Error).message)
     }
   }
 
@@ -432,14 +355,12 @@ function App() {
       })
 
       setMessages([])
-      setTranscript('')
       setSelectedEntry(null)
       setStatus('Conversation reset. Ready to start fresh!')
 
     } catch (error) {
       console.error('Error resetting conversation:', error)
       setMessages([])
-      setTranscript('')
       setSelectedEntry(null)
       setStatus('Conversation reset locally')
     }
@@ -452,7 +373,6 @@ function App() {
       })
 
       setMessages([])
-      setTranscript('')
       setSelectedEntry(null)
       setStatus('New conversation started. Ready to chat!')
 
@@ -554,35 +474,20 @@ function App() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="w-5 h-5" />
-                Live Transcript
+                Transcript
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Final Transcript:
-                </div>
-                <Textarea
-                  value={transcript}
-                  onChange={(e) => setTranscript(e.target.value)}
-                  placeholder="Your transcribed speech will appear here..."
-                  className="min-h-[80px] resize-none"
-                  readOnly
-                />
-                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Live Transcript:
-                </div>
-                <div className="min-h-[80px] p-3 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
-                  {liveTranscript ? (
-                    <span className="text-gray-600 dark:text-gray-300 italic">
-                      {liveTranscript}
-                    </span>
-                  ) : (
-                    <span className="text-gray-400 dark:text-gray-500 italic">
-                      {isRecording ? 'Listening...' : 'Start recording to see live transcription'}
-                    </span>
-                  )}
-                </div>
+              <div className="min-h-[160px] p-3 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
+                {liveTranscript ? (
+                  <span className="text-gray-600 dark:text-gray-300 italic">
+                    {liveTranscript}
+                  </span>
+                ) : (
+                  <span className="text-gray-400 dark:text-gray-500 italic">
+                    {isRecording ? 'Listening...' : 'Start recording to see transcription'}
+                  </span>
+                )}
               </div>
             </CardContent>
           </Card>
