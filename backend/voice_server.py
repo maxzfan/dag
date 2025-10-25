@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 import logging
 #from sysprompt import SYSTEM_PROMPT
 from pathlib import Path
-SYSTEM_PROMPT = Path(__file__).with_name("systemprompt2_slim.md").read_text(encoding="utf-8")
+SYSTEM_PROMPT = Path(__file__).with_name("systemprompt3.md").read_text(encoding="utf-8")
+
 
 # Multi-agent prompts
 PROMPT_JOURNAL = Path(__file__).with_name("prompt_journal.md").read_text(encoding="utf-8") if (Path(__file__).with_name("prompt_journal.md")).exists() else None
