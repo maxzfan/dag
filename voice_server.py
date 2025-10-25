@@ -40,7 +40,7 @@ def text_to_speech():
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
         response = jsonify({})
-        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:8080')
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
         response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
         return response
@@ -75,7 +75,7 @@ def speech_to_text():
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
         response = jsonify({})
-        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:8080')
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
         response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
         return response
@@ -152,7 +152,7 @@ def conversation():
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
         response = jsonify({})
-        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:8080')
+        response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
         response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
         return response

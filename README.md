@@ -1,93 +1,157 @@
-# Voice AI Conversation with Fish Audio
+# Voice AI Conversation
 
-A web application that enables voice conversations with AI using Fish Audio for text-to-speech and OpenAI for conversation.
+A real-time voice conversation application with AI using Fish Audio and OpenRouter APIs.
 
 ## Features
 
-- 🎤 Voice recording with high-quality audio processing
-- 🗣️ Speech-to-text using OpenAI Whisper
-- 🤖 AI conversation using GPT-3.5-turbo
-- 🔊 Text-to-speech using Fish Audio
-- 💬 Real-time conversation display
-- 🔄 Conversation reset functionality
+- 🎤 **Voice Recording**: Record your voice using the browser microphone
+- 🗣️ **Speech-to-Text**: Convert speech to text using Fish Audio API
+- 🤖 **AI Conversation**: Chat with Claude AI via OpenRouter
+- 🔊 **Text-to-Speech**: Convert AI responses back to speech using Fish Audio
+- 💬 **Conversation History**: Maintains context throughout the conversation
 
-## Setup Instructions
+## Tech Stack
 
-### 1. Install Python Dependencies
+- **Frontend**: React + TypeScript + shadcn/ui + Tailwind CSS
+- **Backend**: Python Flask
+- **APIs**: 
+  - Fish Audio (Speech-to-Text & Text-to-Speech)
+  - OpenRouter (AI Conversation with Claude)
+- **Build Tools**: Vite
 
-```bash
-pip install -r requirements.txt
-```
+## Setup
 
-### 2. Configure API Keys
+### Prerequisites
+- Python 3.8+
+- Node.js 16+
+- Fish Audio API key
+- OpenRouter API key
 
-Create a `.env` file in the project root:
+### Installation
 
-```bash
-cp .env.example .env
-```
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd nexus
+   ```
 
-Edit `.env` and add your API keys:
+2. **Install Python dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```
-FISH_AUDIO_API_KEY=your_fish_audio_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here
-```
+3. **Install Node.js dependencies**
+   ```bash
+   npm install
+   ```
 
-### 3. Start the Backend Server
+4. **Configure environment variables**
+   Create a `.env` file with your API keys:
+   ```
+   FISH_AUDIO_API_KEY=your_fish_audio_api_key
+   OPENROUTER_API_KEY=your_openrouter_api_key
+   ```
 
-```bash
-python voice_server.py
-```
+### Running the Application
 
-The server will start on `http://localhost:5000`
+1. **Start the backend server**
+   ```bash
+   python3 voice_server.py
+   ```
+   Server runs on `http://localhost:5001`
 
-### 4. Start the Frontend
+2. **Start the frontend development server**
+   ```bash
+   npm run dev
+   ```
+   Frontend runs on `http://localhost:3000`
 
-In a new terminal:
-
-```bash
-npm start
-```
-
-This will start the webpack dev server and open the application in your browser.
+3. **Open your browser**
+   Navigate to `http://localhost:3000`
 
 ## Usage
 
-1. **Allow microphone access** when prompted by your browser
-2. **Click "Start Recording"** to begin recording your voice
-3. **Speak your message** clearly
-4. **Click "Stop Recording"** when finished
-5. **Wait for AI response** - it will appear as text and play as audio
-6. **Continue the conversation** by recording more messages
-7. **Reset conversation** anytime using the reset button
+1. **Grant microphone permission** when prompted
+2. **Click "Start Recording"** and speak clearly
+3. **Click "Stop Recording"** when finished
+4. **Wait for processing** - the AI will respond with both text and voice
+5. **Continue the conversation** by recording again
 
 ## API Endpoints
 
-- `POST /speech-to-text` - Convert audio to text
-- `POST /conversation` - Get AI response to text
-- `POST /text-to-speech` - Convert text to audio
-- `POST /reset-conversation` - Reset conversation history
 - `GET /health` - Health check
+- `POST /speech-to-text` - Convert audio to text
+- `POST /conversation` - Get AI response
+- `POST /text-to-speech` - Convert text to audio
+- `POST /reset-conversation` - Clear conversation history
 
-## Browser Requirements
+## Configuration
 
-- Modern browser with MediaRecorder API support
-- Microphone access permission
-- HTTPS (required for microphone access in production)
+### Voice Settings
+- **Response Length**: Limited to 150 characters for better speech synthesis
+- **Voice**: Uses Fish Audio default voice
+- **Language**: English
+
+### CORS
+- Configured for `http://localhost:3000`
+- Supports preflight OPTIONS requests
+
+## Development
+
+### Project Structure
+```
+nexus/
+├── src/
+│   ├── components/
+│   │   └── ui/            # shadcn/ui components
+│   ├── lib/
+│   │   └── utils.ts       # Utility functions
+│   ├── App.tsx            # Main React component
+│   ├── main.tsx           # React entry point
+│   └── index.css          # Global styles with Tailwind
+├── index.html             # HTML entry point
+├── voice_server.py        # Flask backend server
+├── requirements.txt       # Python dependencies
+├── package.json           # Node.js dependencies
+├── vite.config.ts         # Vite configuration
+└── tailwind.config.js     # Tailwind CSS configuration
+```
+
+### Building for Production
+```bash
+npm run build
+```
 
 ## Troubleshooting
 
-- **Microphone not working**: Check browser permissions
-- **Server errors**: Verify API keys in `.env` file
-- **Audio issues**: Try different browsers (Chrome/Firefox recommended)
-- **CORS errors**: Ensure both frontend and backend are running
+### Common Issues
 
-## Architecture
+1. **"Failed to fetch" error**
+   - Check if both servers are running
+   - Verify CORS configuration
+   - Check browser console for errors
 
-```
-Frontend (Browser) ↔ Backend (Python Flask) ↔ External APIs
-                                            ├─ Fish Audio (TTS)
-                                            ├─ OpenAI Whisper (STT)
-                                            └─ OpenAI GPT (Conversation)
-```
+2. **Microphone not working**
+   - Grant microphone permission in browser
+   - Check if microphone is being used by another application
+
+3. **API errors**
+   - Verify API keys in `.env` file
+   - Check server logs for detailed error messages
+
+### Debug Mode
+- Backend runs in debug mode with detailed logging
+- Check terminal output for API request/response details
+- Browser console shows frontend debugging information
+
+## License
+
+See LICENSE.txt for details.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request

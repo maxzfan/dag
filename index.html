@@ -1,54 +1,14 @@
 <!doctype html>
-<html class="no-js" lang="">
-
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Voice AI Conversation</title>
-  <link rel="stylesheet" href="css/style.css">
-  <meta name="description" content="Voice AI conversation with Fish Audio">
-
-  <meta property="og:title" content="Voice AI Conversation">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="">
-  <meta property="og:image" content="">
-  <meta property="og:image:alt" content="">
-
-  <link rel="icon" href="/favicon.ico" sizes="any">
-  <link rel="icon" href="/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icon.png">
-
-  <link rel="manifest" href="site.webmanifest">
-  <meta name="theme-color" content="#fafafa">
-</head>
-
-<body>
-  <div class="container">
-    <header>
-      <h1>Voice AI Conversation</h1>
-      <p>Talk with AI using Fish Audio</p>
-    </header>
-
-    <main class="conversation-area">
-      <div id="status" class="status">Ready to start conversation</div>
-
-      <div class="controls">
-        <button id="startRecord" class="btn btn-primary">🎤 Start Recording</button>
-        <button id="stopRecord" class="btn btn-danger" disabled>⏹️ Stop Recording</button>
-        <button id="resetConversation" class="btn btn-secondary">🔄 Reset Conversation</button>
-      </div>
-
-      <div id="conversation" class="conversation">
-        <!-- Conversation messages will appear here -->
-      </div>
-
-      <div class="audio-controls">
-        <audio id="audioPlayback" controls style="display: none;"></audio>
-      </div>
-    </main>
-  </div>
-
-  <script src="js/app.js"></script>
-</body>
-
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nexus - Voice AI Conversation</title>
+    <meta name="description" content="Nexus - Advanced Voice AI Conversation Platform" />
+  </head>
+  <body class="dark">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>
