@@ -2,6 +2,8 @@
 import os
 import tempfile
 import uuid
+import json
+from datetime import datetime, timezone
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from fish_audio_sdk import Session, TTSRequest
@@ -33,6 +35,63 @@ except Exception as e:
 
 def _journal_file_for(date: datetime) -> Path:
     return DATA_DIR / f"journal-{date.date().isoformat()}.jsonl"
+
+def save_conversation_entry(conversation_id: str, user_text: str, ai_summary: str, extra: dict | None = None) -> dict:
+    """Save or update a conversation entry with grouped messages.
+    
+    If conversation_id exists, append to it. Otherwise, create new conversation.
+    """
+    now = datetime.now(timezone.utc)
+    
+    # Try to find existing conversation
+    conversation_file = DATA_DIR / f"conversation-{conversation_id}.json"
+    
+    if conversation_file.exists():
+        # Load existing conversation
+        try:
+            with conversation_file.open("r", encoding="utf-8") as f:
+                conversation_data = json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            # If file is corrupted, start fresh
+            conversation_data = {
+                "id": conversation_id,
+                "title": f"Chat {now.date().isoformat()}",
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat(),
+                "messages": []
+            }
+    else:
+        # Create new conversation
+        conversation_data = {
+            "id": conversation_id,
+            "title": f"Chat {now.date().isoformat()}",
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "messages": []
+        }
+    
+    # Add new message pair
+    message_id = str(uuid.uuid4())
+    conversation_data["messages"].append({
+        "id": message_id,
+        "timestamp": now.isoformat(),
+        "user_text": user_text,
+        "ai_summary": ai_summary,
+        "model": extra.get("model", "anthropic/claude-3-haiku") if extra else "anthropic/claude-3-haiku"
+    })
+    
+    # Update timestamp
+    conversation_data["updated_at"] = now.isoformat()
+    
+    # Save back to file
+    try:
+        with conversation_file.open("w", encoding="utf-8") as f:
+            json.dump(conversation_data, f, ensure_ascii=False, indent=2)
+        logger.info(f"Updated conversation {conversation_id} with message {message_id}")
+    except Exception as e:
+        logger.error(f"Failed to save conversation {conversation_id}: {e}")
+    
+    return conversation_data
 
 def save_journal_entry(user_text: str, ai_summary: str, extra: dict | None = None) -> dict:
     """Append a journal entry to a JSONL file for today's date.
@@ -86,6 +145,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Store conversation history
 conversation_history = []
+current_conversation_id = None
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -192,7 +252,7 @@ def speech_to_text():
         # Use Fish Audio API for speech-to-text
         with open(temp_path, 'rb') as f:
             files = {
-                'audio': f
+                'audio': (audio_file.filename, f, audio_file.content_type)
             }
             data = {
                 'language': 'en',
@@ -234,7 +294,7 @@ def speech_to_text():
 
 @app.route('/conversation', methods=['POST', 'OPTIONS'])
 def conversation():
-    global conversation_history
+    global conversation_history, current_conversation_id
     
     # Handle preflight OPTIONS request
     if request.method == 'OPTIONS':
@@ -249,6 +309,13 @@ def conversation():
 
         if not user_text:
             return jsonify({"error": "No text provided"}), 400
+
+        # Create new conversation ID if none exists or if this is the first message in a conversation
+        if not current_conversation_id or len(conversation_history) == 0:
+            current_conversation_id = str(uuid.uuid4())
+            logger.info(f"Created new conversation ID: {current_conversation_id}")
+        else:
+            logger.info(f"Continuing existing conversation ID: {current_conversation_id} with {len(conversation_history)} previous messages")
 
         # Add user message to conversation history
         conversation_history.append({"role": "user", "content": user_text})
@@ -293,15 +360,16 @@ def conversation():
 
         logger.info(f"AI Response: {ai_response}")
 
-        # Persist a journal entry for this turn
+        # Save to grouped conversation storage
         try:
-            # Find the most recent user message content for pairing
-            last_user_text = next((m["content"] for m in reversed(conversation_history) if m.get("role") == "user"), "")
-            save_journal_entry(user_text=last_user_text, ai_summary=ai_response, extra={
-                "model": "anthropic/claude-3-haiku",
-            })
+            save_conversation_entry(
+                conversation_id=current_conversation_id,
+                user_text=user_text,
+                ai_summary=ai_response,
+                extra={"model": "anthropic/claude-3-haiku"}
+            )
         except Exception as e:
-            logger.error(f"Error saving journal entry: {e}")
+            logger.error(f"Error saving conversation entry: {e}")
         return jsonify({"response": ai_response})
 
     except Exception as e:
@@ -310,9 +378,70 @@ def conversation():
 
 @app.route('/reset-conversation', methods=['POST'])
 def reset_conversation():
-    global conversation_history
+    global conversation_history, current_conversation_id
     conversation_history = []
+    current_conversation_id = None
     return jsonify({"status": "conversation reset"})
+
+@app.route('/start-new-conversation', methods=['POST'])
+def start_new_conversation():
+    """Explicitly start a new conversation with a new ID"""
+    global conversation_history, current_conversation_id
+    conversation_history = []
+    current_conversation_id = str(uuid.uuid4())
+    logger.info(f"Started new conversation with ID: {current_conversation_id}")
+    return jsonify({"status": "new conversation started", "conversation_id": current_conversation_id})
+
+@app.route('/journal-entries', methods=['GET'])
+def get_journal_entries():
+    """Get all journal entries from conversation JSON files"""
+    try:
+        entries = []
+        
+        # Read all conversation JSON files in the data directory
+        for conversation_file in DATA_DIR.glob("conversation-*.json"):
+            try:
+                with conversation_file.open("r", encoding="utf-8") as f:
+                    conversation_data = json.load(f)
+                    
+                    # Convert conversation data to journal entry format
+                    messages = []
+                    for msg in conversation_data.get("messages", []):
+                        messages.extend([
+                            {
+                                "id": f"user-{msg['id']}",
+                                "sender": "user",
+                                "text": msg["user_text"],
+                                "timestamp": msg["timestamp"]
+                            },
+                            {
+                                "id": f"ai-{msg['id']}",
+                                "sender": "ai",
+                                "text": msg["ai_summary"],
+                                "timestamp": msg["timestamp"]
+                            }
+                        ])
+                    
+                    entry = {
+                        "id": conversation_data["id"],
+                        "title": conversation_data.get("title", f"Journal {conversation_data['created_at'][:10]}"),
+                        "timestamp": conversation_data["updated_at"],
+                        "messages": messages
+                    }
+                    entries.append(entry)
+                    
+            except (json.JSONDecodeError, KeyError) as e:
+                logger.warning(f"Error reading conversation file {conversation_file}: {e}")
+                continue
+        
+        # Sort by timestamp (newest first)
+        entries.sort(key=lambda x: x["timestamp"], reverse=True)
+        
+        return jsonify({"entries": entries})
+        
+    except Exception as e:
+        logger.error(f"Error reading journal entries: {e}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
