@@ -202,6 +202,7 @@ orchestrator_state = {
     "pending_questions": None,     # list[str] | None
     "problem_brief": None,         # dict | None
     "detail_spec": None,           # dict | None
+    "ready_yaml": None,            # str | None (stored server-side; never sent to frontend)
 }
 
 def _is_problem_heuristic(text: str) -> bool:
@@ -513,25 +514,40 @@ def conversation():
 
         # Orchestrator flow
         ai_response = ""
-        # If we have pending questions, route answer back through Detail to update spec, then try YAML
+        # If we have pending questions, handle answer according to current phase
         if orchestrator_state.get("pending_questions"):
-            # Treat user text as answers
-            follow_up, spec = _run_detail(orchestrator_state.get("problem_brief") or {}, user_text, orchestrator_state.get("detail_spec"))
-            if spec:
-                orchestrator_state["detail_spec"] = spec
-                missing, yaml_text = _run_yaml(spec)
-                if yaml_text:
-                    ai_response = f"```yaml\n{yaml_text}\n```"
-                    # Reset orchestrator after success
-                    orchestrator_state = {"phase": None, "pending_questions": None, "problem_brief": None, "detail_spec": None}
+            # Special handling: if YAML is already ready and we're awaiting confirmation
+            if orchestrator_state.get("phase") == "yaml" and orchestrator_state.get("ready_yaml"):
+                answer = user_text.strip().lower()
+                if any(x in answer for x in ["yes", "yep", "ok", "okay", "proceed", "go ahead", "generate", "do it", "sure"]):
+                    ai_response = "Acknowledged. I will generate the YAML server-side."
+                    orchestrator_state = {"phase": None, "pending_questions": None, "problem_brief": None, "detail_spec": None, "ready_yaml": None}
+                elif any(x in answer for x in ["no", "not now", "later", "stop", "cancel"]):
+                    ai_response = "Okay, I won't generate the YAML right now."
+                    orchestrator_state = {"phase": None, "pending_questions": None, "problem_brief": None, "detail_spec": None, "ready_yaml": None}
                 else:
-                    orchestrator_state["pending_questions"] = [missing] if missing else None
-                    orchestrator_state["phase"] = "yaml"
-                    ai_response = missing or "I need one more detail to finish the YAML."
+                    ai_response = "Would you like me to generate the YAML now? (yes/no)"
+                
             else:
-                orchestrator_state["pending_questions"] = [follow_up] if follow_up else None
-                orchestrator_state["phase"] = "detail"
-                ai_response = follow_up or "Could you clarify a couple details?"
+            # Treat user text as answers
+                follow_up, spec = _run_detail(orchestrator_state.get("problem_brief") or {}, user_text, orchestrator_state.get("detail_spec"))
+                if spec:
+                    orchestrator_state["detail_spec"] = spec
+                    missing, yaml_text = _run_yaml(spec)
+                    if yaml_text:
+                        # Store YAML server-side; ask for confirmation instead of sending YAML
+                        orchestrator_state["ready_yaml"] = yaml_text
+                        orchestrator_state["phase"] = "yaml"
+                        orchestrator_state["pending_questions"] = ["I have enough information to generate the YAML. Should I proceed to generate it now?"]
+                        ai_response = orchestrator_state["pending_questions"][0]
+                    else:
+                        orchestrator_state["pending_questions"] = [missing] if missing else None
+                        orchestrator_state["phase"] = "yaml"
+                        ai_response = missing or "I need one more detail to finish the YAML."
+                else:
+                    orchestrator_state["pending_questions"] = [follow_up] if follow_up else None
+                    orchestrator_state["phase"] = "detail"
+                    ai_response = follow_up or "Could you clarify a couple details?"
         else:
             # Start with Journal
             journal_text, brief = _run_journal(user_text)
@@ -543,8 +559,11 @@ def conversation():
                     orchestrator_state["detail_spec"] = spec
                     missing, yaml_text = _run_yaml(spec)
                     if yaml_text:
-                        ai_response = f"```yaml\n{yaml_text}\n```"
-                        orchestrator_state = {"phase": None, "pending_questions": None, "problem_brief": None, "detail_spec": None}
+                        # Store YAML server-side; ask for confirmation instead of sending YAML
+                        orchestrator_state["ready_yaml"] = yaml_text
+                        orchestrator_state["phase"] = "yaml"
+                        orchestrator_state["pending_questions"] = ["I have enough information to generate the YAML. Should I proceed to generate it now?"]
+                        ai_response = orchestrator_state["pending_questions"][0]
                     else:
                         orchestrator_state["pending_questions"] = [missing] if missing else None
                         orchestrator_state["phase"] = "yaml"
