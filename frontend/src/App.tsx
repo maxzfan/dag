@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { Mic, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Textarea } from '@/components/ui/textarea'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Mic, MessageSquare, History } from 'lucide-react'
 
 interface Message {
   id: string
@@ -11,12 +13,22 @@ interface Message {
   timestamp: Date
 }
 
+interface ChatHistory {
+  id: string
+  title: string
+  timestamp: Date
+  messages: Message[]
+}
+
 function App() {
   const [isRecording, setIsRecording] = useState(false)
   const [status, setStatus] = useState('Click to start recording')
   const [messages, setMessages] = useState<Message[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
-  const [isChatOpen, setIsChatOpen] = useState(false)
+  const [transcript, setTranscript] = useState('')
+  const [chatHistories, setChatHistories] = useState<ChatHistory[]>([])
+  const [selectedHistory, setSelectedHistory] = useState<string | null>(null)
+  const [isAnimating, setIsAnimating] = useState(false)
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -142,6 +154,8 @@ function App() {
       const transcribedText = await speechToText(audioBlob)
 
       if (transcribedText && transcribedText.trim()) {
+        setTranscript(transcribedText)
+        
         const userMessage: Message = {
           id: Date.now().toString(),
           sender: 'user',
@@ -166,7 +180,6 @@ function App() {
 
       setIsProcessing(false)
       setStatus('Click to start recording')
-      setIsChatOpen(true)
 
     } catch (error) {
       console.error('Error processing recording:', error)
@@ -237,103 +250,243 @@ function App() {
     }
   }
 
+  const saveChatHistory = () => {
+    if (messages.length === 0) return
+
+    const newHistory: ChatHistory = {
+      id: Date.now().toString(),
+      title: `Chat ${new Date().toLocaleDateString()}`,
+      timestamp: new Date(),
+      messages: [...messages]
+    }
+
+    setChatHistories(prev => [newHistory, ...prev])
+  }
+
+  const loadChatHistory = (historyId: string) => {
+    const history = chatHistories.find(h => h.id === historyId)
+    if (history) {
+      setMessages(history.messages)
+      setSelectedHistory(historyId)
+    }
+  }
+
   const resetConversation = async () => {
-    try {
-      await fetch(`${apiBaseUrl}/reset-conversation`, {
-        method: 'POST'
-      })
+    // If there are messages, animate them into history first
+    if (messages.length > 0) {
+      setIsAnimating(true)
+      
+      // Create history entry
+      const newHistory: ChatHistory = {
+        id: Date.now().toString(),
+        title: `Chat ${new Date().toLocaleDateString()}`,
+        timestamp: new Date(),
+        messages: [...messages]
+      }
+      
+      // Add to history
+      setChatHistories(prev => [newHistory, ...prev])
+      
+      // Wait for animation to complete
+      setTimeout(async () => {
+        try {
+          await fetch(`${apiBaseUrl}/reset-conversation`, {
+            method: 'POST'
+          })
 
-      setMessages([])
-      setStatus('Conversation reset. Ready to start fresh!')
+          setMessages([])
+          setTranscript('')
+          setSelectedHistory(null)
+          setStatus('Conversation reset. Ready to start fresh!')
+          setIsAnimating(false)
 
-    } catch (error) {
-      console.error('Error resetting conversation:', error)
-      setMessages([])
-      setStatus('Conversation reset locally')
+        } catch (error) {
+          console.error('Error resetting conversation:', error)
+          setMessages([])
+          setTranscript('')
+          setSelectedHistory(null)
+          setStatus('Conversation reset locally')
+          setIsAnimating(false)
+        }
+      }, 800) // Animation duration
+    } else {
+      // No messages to animate, just reset normally
+      try {
+        await fetch(`${apiBaseUrl}/reset-conversation`, {
+          method: 'POST'
+        })
+
+        setMessages([])
+        setTranscript('')
+        setSelectedHistory(null)
+        setStatus('Conversation reset. Ready to start fresh!')
+
+      } catch (error) {
+        console.error('Error resetting conversation:', error)
+        setMessages([])
+        setTranscript('')
+        setSelectedHistory(null)
+        setStatus('Conversation reset locally')
+      }
     }
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black flex flex-col items-center justify-center px-6">
-      {/* Header with Logo */}
-      <div className="absolute top-8 left-1/2 transform -translate-x-1/2 flex flex-col items-center">
-        <div className="flex items-center space-x-3">
-          <img 
-            src="/assets/icons/nexus-icon.png" 
-            alt="Nexus" 
-            className="w-12 h-12"
-          />
-          <h1 className="text-3xl font-bold text-yellow-100">
-            Nexus
-          </h1>
+    <div className="min-h-screen bg-white dark:bg-black">
+      {/* Header */}
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center gap-2 px-4">
+          <div className="flex items-center space-x-3">
+            <img 
+              src="/assets/icons/nexus-icon.png" 
+              alt="Daggy" 
+              className="w-8 h-8"
+            />
+            <h1 className="text-xl font-bold text-yellow-100">
+              Daggy
+            </h1>
+          </div>
         </div>
-      </div>
-      
-      {/* Status */}
-      <div className="mb-8">
-        <Badge 
-          variant={isRecording ? "destructive" : isProcessing ? "secondary" : "default"}
-          className={`text-sm px-4 py-2 ${isRecording ? 'animate-pulse' : ''}`}
-        >
-          {status}
-        </Badge>
-      </div>
+      </header>
 
-      {/* Main Recording Button */}
-      <div className="mb-8">
-        <Button
-          onClick={handleToggleRecording}
-          disabled={isProcessing}
-          className={`
-            w-32 h-32 rounded-full text-black font-semibold text-lg
-            transition-all duration-200 ease-in-out
-            ${isRecording 
-              ? 'bg-red-500 hover:bg-red-600 scale-110 shadow-2xl shadow-red-500/50' 
-              : 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 hover:scale-105 shadow-xl shadow-yellow-500/30'
-            }
-            ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-            active:scale-95
-          `}
-        >
-          <Mic className="w-8 h-8" />
-        </Button>
-      </div>
+      {/* Main Content */}
+      <div className="flex flex-1 flex-col gap-4 p-4">
+        {/* Top Row - Voice Button and Transcript */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Voice Button - Top Left */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mic className="w-5 h-5" />
+                Voice Control
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center space-y-4">
+              <Badge 
+                variant={isRecording ? "destructive" : isProcessing ? "secondary" : "default"}
+                className={`text-sm px-4 py-2 ${isRecording ? 'animate-pulse' : ''}`}
+              >
+                {status}
+              </Badge>
+              
+              <Button
+                onClick={handleToggleRecording}
+                disabled={isProcessing}
+                size="lg"
+                className={`
+                  w-24 h-24 rounded-full text-black font-semibold text-lg
+                  transition-all duration-200 ease-in-out
+                  ${isRecording 
+                    ? 'bg-red-500 hover:bg-red-600 scale-110 shadow-2xl shadow-red-500/50' 
+                    : 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 hover:scale-105 shadow-xl shadow-yellow-500/30'
+                  }
+                  ${isProcessing ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                  active:scale-95
+                `}
+              >
+                <Mic className="w-8 h-8" />
+              </Button>
 
-      {/* Conversation Section */}
-      {messages.length > 0 && (
-        <div className="w-full max-w-2xl">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Conversation</h3>
-                <div className="flex items-center space-x-2">
-                  <Collapsible open={isChatOpen} onOpenChange={setIsChatOpen}>
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MessageSquare className="w-4 h-4 mr-2" />
-                        {isChatOpen ? 'Hide' : 'Show'} Messages
-                        {isChatOpen ? <ChevronUp className="w-4 h-4 ml-2" /> : <ChevronDown className="w-4 h-4 ml-2" />}
-                      </Button>
-                    </CollapsibleTrigger>
-                  </Collapsible>
-                  <Button
-                    onClick={resetConversation}
-                    variant="outline"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                  >
-                    Reset
-                  </Button>
-                </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={saveChatHistory}
+                  variant="outline"
+                  size="sm"
+                  disabled={messages.length === 0}
+                >
+                  Save Chat
+                </Button>
+                <Button
+                  onClick={resetConversation}
+                  variant="outline"
+                  size="sm"
+                  disabled={isAnimating}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
+                  {isAnimating ? 'Archiving...' : 'Reset'}
+                </Button>
               </div>
-            </div>
-            
-            <Collapsible open={isChatOpen} onOpenChange={setIsChatOpen}>
-              <CollapsibleContent>
-                <div className="p-4">
+            </CardContent>
+          </Card>
+
+          {/* Transcript Box - Top Right */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" />
+                Live Transcript
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                placeholder="Your transcribed speech will appear here..."
+                className="min-h-[200px] resize-none"
+                readOnly
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Bottom Half - Chat History */}
+        <Card className="flex-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              Chat History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[400px]">
+              {/* Chat Histories List */}
+              <div className="lg:col-span-1">
+                <h3 className="text-sm font-medium mb-2">Previous Conversations</h3>
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-2">
+                    {chatHistories.map((history, index) => (
+                      <Card 
+                        key={history.id}
+                        className={`cursor-pointer transition-colors ${
+                          selectedHistory === history.id 
+                            ? 'bg-yellow-100 dark:bg-yellow-900/20 border-yellow-500' 
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                        } ${
+                          index === 0 && isAnimating ? 'chat-history-enter' : ''
+                        }`}
+                        onClick={() => loadChatHistory(history.id)}
+                      >
+                        <CardContent className="p-3">
+                          <div className="text-sm font-medium">{history.title}</div>
+                          <div className="text-xs text-gray-500">
+                            {history.timestamp.toLocaleString()}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            {history.messages.length} messages
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    {chatHistories.length === 0 && (
+                      <div className="text-sm text-gray-500 text-center py-4">
+                        No chat histories yet
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* Current Messages */}
+              <div className="lg:col-span-2">
+                <h3 className="text-sm font-medium mb-2">Current Conversation</h3>
+                <ScrollArea className="h-[300px]">
                   <div 
                     ref={conversationRef}
-                    className="max-h-96 overflow-y-auto space-y-4"
+                    className={`space-y-4 pr-4 ${
+                      isAnimating 
+                        ? 'chat-archive-animation' 
+                        : ''
+                    }`}
                   >
                     {messages.map((message) => (
                       <div
@@ -348,19 +501,30 @@ function App() {
                           }`}
                         >
                           <div className="text-xs font-medium mb-2 opacity-80">
-                            {message.sender === 'user' ? 'You' : 'Nexus AI'}
+                            {message.sender === 'user' ? 'You' : 'Daggy AI'}
                           </div>
                           <div className="text-sm leading-relaxed">{message.text}</div>
                         </div>
                       </div>
                     ))}
+                    {messages.length === 0 && !isAnimating && (
+                      <div className="text-sm text-gray-500 text-center py-8">
+                        Start a conversation by clicking the voice button
+                      </div>
+                    )}
+                    {isAnimating && (
+                      <div className="text-sm text-yellow-600 text-center py-8 flex items-center justify-center gap-2">
+                        <div className="animate-spin w-4 h-4 border-2 border-yellow-600 border-t-transparent rounded-full"></div>
+                        Archiving conversation...
+                      </div>
+                    )}
                   </div>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          </div>
-        </div>
-      )}
+                </ScrollArea>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Hidden Audio */}
       <div className="hidden">
