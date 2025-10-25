@@ -1,157 +1,169 @@
-# Voice AI Conversation
+# Nexus - Voice AI Conversation Platform
 
-A real-time voice conversation application with AI using Fish Audio and OpenRouter APIs.
+A modern, sleek voice AI conversation application built with React, TypeScript, and shadcn/ui, featuring real-time voice interaction with AI using Fish Audio and OpenRouter APIs.
 
-## Features
-
-- 🎤 **Voice Recording**: Record your voice using the browser microphone
-- 🗣️ **Speech-to-Text**: Convert speech to text using Fish Audio API
-- 🤖 **AI Conversation**: Chat with Claude AI via OpenRouter
-- 🔊 **Text-to-Speech**: Convert AI responses back to speech using Fish Audio
-- 💬 **Conversation History**: Maintains context throughout the conversation
-
-## Tech Stack
-
-- **Frontend**: React + TypeScript + shadcn/ui + Tailwind CSS
-- **Backend**: Python Flask
-- **APIs**: 
-  - Fish Audio (Speech-to-Text & Text-to-Speech)
-  - OpenRouter (AI Conversation with Claude)
-- **Build Tools**: Vite
-
-## Setup
+## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.8+
-- Node.js 16+
-- Fish Audio API key
-- OpenRouter API key
+- **Node.js 18+** - [Download here](https://nodejs.org/)
+- **Python 3.8+** - [Download here](https://python.org/)
+- **Git** - [Download here](https://git-scm.com/)
 
-### Installation
+### API Keys Required
+- **Fish Audio API Key** - [Get it here](https://fish.audio/)
+- **OpenRouter API Key** - [Get it here](https://openrouter.ai/)
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd nexus
-   ```
+## 📦 Installation
 
-2. **Install Python dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 1. Clone the Repository
+```bash
+git clone <your-repo-url>
+cd nexus
+```
 
-3. **Install Node.js dependencies**
-   ```bash
-   npm install
-   ```
+### 2. Install Dependencies
 
-4. **Configure environment variables**
-   Create a `.env` file with your API keys:
-   ```
-   FISH_AUDIO_API_KEY=your_fish_audio_api_key
-   OPENROUTER_API_KEY=your_openrouter_api_key
-   ```
+**Backend (Python)**
+```bash
+cd backend
+pip install -r requirements.txt
+```
 
-### Running the Application
+**Frontend (Node.js)**
+```bash
+cd frontend
+npm install
+```
 
-1. **Start the backend server**
-   ```bash
-   python3 voice_server.py
-   ```
-   Server runs on `http://localhost:5001`
+### 3. Environment Setup
+Create a `.env` file in the root directory:
+```bash
+# Fish Audio API Configuration
+FISH_AUDIO_API_KEY=your_fish_audio_api_key_here
 
-2. **Start the frontend development server**
-   ```bash
-   npm run dev
-   ```
-   Frontend runs on `http://localhost:3000`
+# OpenRouter API Configuration  
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+```
 
-3. **Open your browser**
-   Navigate to `http://localhost:3000`
+## 🎯 Running the Application
 
-## Usage
+### Start the Backend Server
+```bash
+cd backend
+python3 voice_server.py
+```
+- Server runs on `http://localhost:5001`
 
-1. **Grant microphone permission** when prompted
-2. **Click "Start Recording"** and speak clearly
-3. **Click "Stop Recording"** when finished
-4. **Wait for processing** - the AI will respond with both text and voice
-5. **Continue the conversation** by recording again
+### Start the Frontend Development Server
+```bash
+cd frontend
+npm run dev
+```
+- Frontend runs on `http://localhost:3000`
 
-## API Endpoints
+### Open in Browser
+Navigate to `http://localhost:3000` to access the Nexus interface.
 
-- `GET /health` - Health check
-- `POST /speech-to-text` - Convert audio to text
-- `POST /conversation` - Get AI response
-- `POST /text-to-speech` - Convert text to audio
-- `POST /reset-conversation` - Clear conversation history
+## 📁 Project Structure
 
-## Configuration
-
-### Voice Settings
-- **Response Length**: Limited to 150 characters for better speech synthesis
-- **Voice**: Uses Fish Audio default voice
-- **Language**: English
-
-### CORS
-- Configured for `http://localhost:3000`
-- Supports preflight OPTIONS requests
-
-## Development
-
-### Project Structure
 ```
 nexus/
-├── src/
-│   ├── components/
-│   │   └── ui/            # shadcn/ui components
-│   ├── lib/
-│   │   └── utils.ts       # Utility functions
-│   ├── App.tsx            # Main React component
-│   ├── main.tsx           # React entry point
-│   └── index.css          # Global styles with Tailwind
-├── index.html             # HTML entry point
-├── voice_server.py        # Flask backend server
-├── requirements.txt       # Python dependencies
-├── package.json           # Node.js dependencies
-├── vite.config.ts         # Vite configuration
-└── tailwind.config.js     # Tailwind CSS configuration
+├── backend/                 # Python Flask backend
+│   ├── voice_server.py     # Main Flask server
+│   ├── sysprompt.py       # System prompt utilities
+│   └── requirements.txt   # Python dependencies
+├── frontend/               # React TypeScript frontend
+│   ├── src/
+│   │   ├── components/     # React components
+│   │   │   └── ui/        # shadcn/ui components
+│   │   ├── lib/           # Utility functions
+│   │   ├── App.tsx        # Main application
+│   │   ├── main.tsx       # React entry point
+│   │   └── index.css      # Global styles
+│   ├── public/            # Static assets
+│   ├── index.html         # HTML entry point
+│   ├── package.json       # Node.js dependencies
+│   ├── vite.config.ts     # Vite configuration
+│   └── tailwind.config.js # Tailwind CSS config
+├── assets/                # Static assets
+│   ├── icons/            # App icons
+│   └── images/           # Images and graphics
+├── docs/                 # Documentation
+│   ├── SETUP.md         # Detailed setup guide
+│   └── README.md        # This file
+└── .env                  # Environment variables
 ```
 
-### Building for Production
+## 🎨 Features
+
+### Modern UI/UX
+- **Dark Theme**: Sleek black background with green accents
+- **Nexus Branding**: Professional AI platform aesthetic
+- **Responsive Design**: Works on desktop and mobile
+- **shadcn/ui Components**: Accessible, modern UI components
+- **Smooth Animations**: Hover effects, transitions, and visual feedback
+
+### Voice AI Capabilities
+- **Real-time Recording**: Browser-based microphone recording
+- **Speech-to-Text**: Convert speech to text using Fish Audio
+- **AI Conversation**: Chat with Claude AI via OpenRouter
+- **Text-to-Speech**: Convert AI responses to speech
+- **Conversation History**: Maintains context throughout the session
+
+## 🛠️ Development
+
+### Available Scripts
+
+**Frontend Development**
 ```bash
-npm run build
+cd frontend
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run preview      # Preview production build
 ```
 
-## Troubleshooting
+**Backend Development**
+```bash
+cd backend
+python3 voice_server.py  # Start Flask server
+```
+
+## 📚 Documentation
+
+- **[SETUP.md](docs/SETUP.md)** - Comprehensive setup and configuration guide
+- **[README.md](docs/README.md)** - Detailed project documentation
+
+## 🐛 Troubleshooting
 
 ### Common Issues
 
-1. **"Failed to fetch" error**
-   - Check if both servers are running
-   - Verify CORS configuration
-   - Check browser console for errors
+**1. CORS Errors**
+- Ensure backend is running on port 5001
+- Check that frontend is using the proxy (`/api` endpoints)
+- Verify CORS headers in `backend/voice_server.py`
 
-2. **Microphone not working**
-   - Grant microphone permission in browser
-   - Check if microphone is being used by another application
+**2. Microphone Not Working**
+- Grant microphone permission in browser
+- Check if microphone is being used by another application
+- Try refreshing the page
 
-3. **API errors**
-   - Verify API keys in `.env` file
-   - Check server logs for detailed error messages
+**3. API Errors**
+- Verify API keys in `.env` file
+- Check server logs for detailed error messages
+- Ensure internet connection for API calls
 
-### Debug Mode
-- Backend runs in debug mode with detailed logging
-- Check terminal output for API request/response details
-- Browser console shows frontend debugging information
+## 📄 License
 
-## License
+This project is licensed under the MIT License - see the LICENSE.txt file for details.
 
-See LICENSE.txt for details.
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+---
+
+**Nexus** - Advanced Voice AI Conversation Platform 🚀
