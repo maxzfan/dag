@@ -55,7 +55,7 @@ interface JournalEntry {
 }
 
 function App() {
-  const [mode, setMode] = useState<'agent' | 'journal'>('agent')
+  const [mode, setMode] = useState<'agent' | 'journal'>('journal')
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [status, setStatus] = useState('Click to start recording')
@@ -450,16 +450,6 @@ function App() {
           {/* Mode Toggle Links - moved next to name */}
           <div className="flex items-center gap-6 ml-6">
             <button
-              onClick={() => setMode('agent')}
-              className={`text-sm font-medium transition-colors hover:text-amber-300 ${
-                mode === 'agent' 
-                  ? 'text-amber-300' 
-                  : 'text-gray-300 hover:text-white'
-              }`}
-            >
-              Agent
-            </button>
-            <button
               onClick={() => setMode('journal')}
               className={`text-sm font-medium transition-colors hover:text-amber-300 ${
                 mode === 'journal' 
@@ -468,6 +458,16 @@ function App() {
               }`}
             >
               Journal
+            </button>
+            <button
+              onClick={() => setMode('agent')}
+              className={`text-sm font-medium transition-colors hover:text-amber-300 ${
+                mode === 'agent' 
+                  ? 'text-amber-300' 
+                  : 'text-gray-300 hover:text-white'
+              }`}
+            >
+              Agent
             </button>
           </div>
         </div>
