@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 import logging
 #from sysprompt import SYSTEM_PROMPT
 from pathlib import Path
-SYSTEM_PROMPT = Path(__file__).with_name("systemprompt.md").read_text(encoding="utf-8")
+SYSTEM_PROMPT = Path(__file__).with_name("systemprompt2.md").read_text(encoding="utf-8")
 
 
 # Load environment variables
