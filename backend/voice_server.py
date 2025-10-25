@@ -205,6 +205,22 @@ orchestrator_state = {
     "ready_yaml": None,            # str | None (stored server-side; never sent to frontend)
 }
 
+def _save_generated_yaml(yaml_text: str) -> str:
+    """Persist generated YAML to disk under data/generated and return the file path as string."""
+    try:
+        gen_dir = DATA_DIR / "generated"
+        gen_dir.mkdir(exist_ok=True)
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        filename = f"agent-{ts}.yaml"
+        out_path = gen_dir / filename
+        with out_path.open("w", encoding="utf-8", newline="\n") as f:
+            f.write(yaml_text.rstrip() + "\n")
+        logger.info(f"Saved generated YAML to {out_path}")
+        return str(out_path)
+    except Exception as e:
+        logger.error(f"Failed to save generated YAML: {e}")
+        return ""
+
 def _is_problem_heuristic(text: str) -> bool:
     """Lightweight keyword check to confirm the user's text actually indicates a problem.
     This reduces false positives from the Journal model.
@@ -520,7 +536,11 @@ def conversation():
             if orchestrator_state.get("phase") == "yaml" and orchestrator_state.get("ready_yaml"):
                 answer = user_text.strip().lower()
                 if any(x in answer for x in ["yes", "yep", "ok", "okay", "proceed", "go ahead", "generate", "do it", "sure"]):
-                    ai_response = "Acknowledged. I will generate the YAML server-side."
+                    saved_path = _save_generated_yaml(orchestrator_state.get("ready_yaml") or "")
+                    if saved_path:
+                        ai_response = f"YAML generated and saved to: {saved_path}"
+                    else:
+                        ai_response = "I attempted to generate the YAML, but saving to disk failed."
                     orchestrator_state = {"phase": None, "pending_questions": None, "problem_brief": None, "detail_spec": None, "ready_yaml": None}
                 elif any(x in answer for x in ["no", "not now", "later", "stop", "cancel"]):
                     ai_response = "Okay, I won't generate the YAML right now."
