@@ -21,7 +21,9 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-slot": "^1.2.3",
+    "@types/node": "^24.9.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.548.0",

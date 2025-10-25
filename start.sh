@@ -17,20 +17,16 @@ trap cleanup SIGINT SIGTERM
 
 # Start backend server
 echo "📡 Starting backend server..."
-cd backend
-python3 voice_server.py &
+(cd backend && python3 voice_server.py) &
 BACKEND_PID=$!
-cd ..
 
 # Wait a moment for backend to start
-sleep 2
+sleep 3
 
 # Start frontend server
 echo "🎨 Starting frontend server..."
-cd frontend
-npm run dev &
+(cd frontend && npm run dev) &
 FRONTEND_PID=$!
-cd ..
 
 echo "✅ Nexus is running!"
 echo "📡 Backend: http://localhost:5001"

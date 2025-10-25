@@ -2,16 +2,12 @@
 echo 🚀 Starting Nexus Voice AI Platform...
 
 echo 📡 Starting backend server...
-cd backend
-start "Nexus Backend" cmd /k "python3 voice_server.py"
-cd ..
+start "Nexus Backend" cmd /k "cd backend && python3 voice_server.py"
 
 timeout /t 3 /nobreak >nul
 
 echo 🎨 Starting frontend server...
-cd frontend
-start "Nexus Frontend" cmd /k "npm run dev"
-cd ..
+start "Nexus Frontend" cmd /k "cd frontend && npm run dev"
 
 echo ✅ Nexus is running!
 echo 📡 Backend: http://localhost:5001
