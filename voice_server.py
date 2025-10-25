@@ -20,12 +20,26 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize Fish Audio
-fish_session = Session(os.getenv('FISH_AUDIO_API_KEY'))
 FISH_API_KEY = os.getenv('FISH_AUDIO_API_KEY')
-FISH_STT_URL = "https://api.fish.audio/v1/asr"
-
-# OpenRouter configuration
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+
+# Check for required environment variables
+if not FISH_API_KEY:
+    logger.error("FISH_AUDIO_API_KEY environment variable is not set!")
+    raise ValueError("FISH_AUDIO_API_KEY environment variable is required")
+
+if not OPENROUTER_API_KEY:
+    logger.error("OPENROUTER_API_KEY environment variable is not set!")
+    raise ValueError("OPENROUTER_API_KEY environment variable is required")
+
+try:
+    fish_session = Session(FISH_API_KEY)
+    logger.info("Fish Audio session initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize Fish Audio session: {str(e)}")
+    raise
+
+FISH_STT_URL = "https://api.fish.audio/v1/asr"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Store conversation history
@@ -44,6 +58,8 @@ def text_to_speech():
         response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
         return response
+    
+    temp_path = None
     try:
         data = request.get_json()
         text = data.get('text', '')
@@ -51,24 +67,43 @@ def text_to_speech():
         if not text:
             return jsonify({"error": "No text provided"}), 400
 
+        # Check if API key is available
+        if not FISH_API_KEY or FISH_API_KEY == 'your_fish_audio_api_key_here':
+            logger.error("FISH_AUDIO_API_KEY is not properly configured")
+            return jsonify({"error": "Fish Audio API key not configured. Please set FISH_AUDIO_API_KEY environment variable."}), 500
+
+        # Create temp directory if it doesn't exist
+        temp_dir = tempfile.gettempdir()
+        os.makedirs(temp_dir, exist_ok=True)
+
         # Generate unique filename
         audio_id = str(uuid.uuid4())
-        audio_path = f"/tmp/audio_{audio_id}.mp3"
+        temp_path = os.path.join(temp_dir, f"audio_{audio_id}.mp3")
 
         # Generate speech using Fish Audio
-        with open(audio_path, "wb") as f:
+        logger.info(f"Generating speech for text: {text[:50]}...")
+        with open(temp_path, "wb") as f:
             for chunk in fish_session.tts(
                 TTSRequest(text=text),
                 backend='s1'
             ):
                 f.write(chunk)
 
-        logger.info(f"Generated audio for text: {text[:50]}...")
-        return send_file(audio_path, mimetype='audio/mpeg')
+        logger.info(f"Generated audio file: {temp_path}")
+        return send_file(temp_path, mimetype='audio/mpeg')
 
     except Exception as e:
         logger.error(f"Error in text-to-speech: {str(e)}")
         return jsonify({"error": str(e)}), 500
+    finally:
+        # Clean up temp file after sending
+        if temp_path and os.path.exists(temp_path):
+            try:
+                # Note: We can't remove the file immediately as it's being sent
+                # The file will be cleaned up by the OS eventually
+                pass
+            except Exception as e:
+                logger.error(f"Error with temp file cleanup: {e}")
 
 @app.route('/speech-to-text', methods=['POST', 'OPTIONS'])
 def speech_to_text():
@@ -79,22 +114,33 @@ def speech_to_text():
         response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
         return response
+    
+    temp_path = None
     try:
         if 'audio' not in request.files:
+            logger.error("No audio file provided in request")
             return jsonify({"error": "No audio file provided"}), 400
 
         audio_file = request.files['audio']
         logger.info(f"Received audio file: {audio_file.filename}, content_type: {audio_file.content_type}")
 
+        # Create temp directory if it doesn't exist
+        temp_dir = tempfile.gettempdir()
+        os.makedirs(temp_dir, exist_ok=True)
+
         # Save uploaded audio temporarily with proper extension
         file_extension = '.webm' if 'webm' in str(audio_file.content_type) else '.wav'
-        temp_path = f"/tmp/upload_{uuid.uuid4()}{file_extension}"
+        temp_path = os.path.join(temp_dir, f"upload_{uuid.uuid4()}{file_extension}")
         audio_file.save(temp_path)
         
         logger.info(f"Audio file saved with extension: {file_extension}")
         logger.info(f"Audio file size: {os.path.getsize(temp_path)} bytes")
-
         logger.info(f"Saved audio to: {temp_path}")
+
+        # Check if API key is available
+        if not FISH_API_KEY or FISH_API_KEY == 'your_fish_audio_api_key_here':
+            logger.error("FISH_AUDIO_API_KEY is not properly configured")
+            return jsonify({"error": "Fish Audio API key not configured. Please set FISH_AUDIO_API_KEY environment variable."}), 500
 
         # Use Fish Audio for speech-to-text
         headers = {
@@ -111,6 +157,7 @@ def speech_to_text():
                 'ignore_timestamps': 'true'
             }
             
+            logger.info(f"Sending request to Fish Audio API: {FISH_STT_URL}")
             stt_response = requests.post(FISH_STT_URL, headers=headers, files=files, data=data)
             logger.info(f"Fish Audio API response status: {stt_response.status_code}")
             logger.info(f"Fish Audio API response: {stt_response.text}")
@@ -124,26 +171,24 @@ def speech_to_text():
             text = response_data.get('text', '')
             logger.info(f"Transcribed: {text}")
 
-        # Clean up
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-
         return jsonify({"text": text})
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Fish Audio API error: {str(e)}")
-        if hasattr(e.response, 'text'):
+        if hasattr(e, 'response') and e.response is not None:
             logger.error(f"Fish Audio API response: {e.response.text}")
-        # Clean up on error
-        if 'temp_path' in locals() and os.path.exists(temp_path):
-            os.remove(temp_path)
         return jsonify({"error": f"Fish Audio API error: {str(e)}"}), 500
     except Exception as e:
         logger.error(f"Error in speech-to-text: {str(e)}")
-        # Clean up on error
-        if 'temp_path' in locals() and os.path.exists(temp_path):
-            os.remove(temp_path)
         return jsonify({"error": str(e)}), 500
+    finally:
+        # Clean up temp file
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+                logger.info(f"Cleaned up temp file: {temp_path}")
+            except Exception as e:
+                logger.error(f"Error cleaning up temp file: {e}")
 
 @app.route('/conversation', methods=['POST', 'OPTIONS'])
 def conversation():
