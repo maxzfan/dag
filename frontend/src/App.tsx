@@ -71,7 +71,7 @@ function App() {
   const conversationRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
 
-  const apiBaseUrl = '/api'
+  const apiBaseUrl = 'http://localhost:5001'
 
   useEffect(() => {
     checkMicrophonePermission()
@@ -125,7 +125,11 @@ function App() {
           // Restart recognition if we're still recording
           setTimeout(() => {
             if (isRecording && recognitionRef.current) {
-              recognitionRef.current.start()
+              try {
+                recognitionRef.current.start()
+              } catch (error) {
+                console.warn('Failed to restart speech recognition:', error)
+              }
             }
           }, 100)
         }
@@ -172,9 +176,13 @@ function App() {
       setLiveTranscript('')
       setTranscript('')
       
-      // Start live speech recognition
-      if (recognitionRef.current) {
-        recognitionRef.current.start()
+      // Start live speech recognition only if not already started
+      if (recognitionRef.current && !isRecording) {
+        try {
+          recognitionRef.current.start()
+        } catch (error) {
+          console.warn('Speech recognition already started or failed to start:', error)
+        }
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -237,7 +245,11 @@ function App() {
     if (mediaRecorderRef.current && isRecording) {
       // Stop speech recognition
       if (recognitionRef.current) {
-        recognitionRef.current.stop()
+        try {
+          recognitionRef.current.stop()
+        } catch (error) {
+          console.warn('Error stopping speech recognition:', error)
+        }
       }
       
       mediaRecorderRef.current.stop()

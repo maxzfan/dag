@@ -2,6 +2,8 @@
 import os
 import tempfile
 import uuid
+import json
+from datetime import datetime, timezone
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from fish_audio_sdk import Session, TTSRequest
@@ -250,7 +252,7 @@ def speech_to_text():
         # Use Fish Audio API for speech-to-text
         with open(temp_path, 'rb') as f:
             files = {
-                'audio': f
+                'audio': (audio_file.filename, f, audio_file.content_type)
             }
             data = {
                 'language': 'en',
