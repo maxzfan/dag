@@ -77,3 +77,6 @@ test_audio.*
 .env.development.local
 .env.test.local
 .env.production.local
+
+# backend data
+backend/data/
