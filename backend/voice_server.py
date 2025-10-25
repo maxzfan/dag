@@ -10,13 +10,7 @@ from dotenv import load_dotenv
 import logging
 #from sysprompt import SYSTEM_PROMPT
 from pathlib import Path
-<<<<<<< HEAD
 SYSTEM_PROMPT = Path(__file__).with_name("systemprompt2.md").read_text(encoding="utf-8")
-=======
-import json
-from datetime import datetime, timezone
-SYSTEM_PROMPT = Path(__file__).with_name("systemprompt.md").read_text(encoding="utf-8")
->>>>>>> 05fadf93664e5e89839dae6571bf7e34a346b89d
 
 
 # Load environment variables
