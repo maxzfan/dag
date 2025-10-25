@@ -1,10 +1,44 @@
 import { useState, useRef, useEffect } from 'react'
+
+// Web Speech API types
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number
+  results: SpeechRecognitionResultList
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string
+  message: string
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean
+  interimResults: boolean
+  lang: string
+  start(): void
+  stop(): void
+  onstart: ((this: SpeechRecognition, ev: Event) => any) | null
+  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null
+  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null
+  onend: ((this: SpeechRecognition, ev: Event) => any) | null
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: {
+      new(): SpeechRecognition
+    }
+    webkitSpeechRecognition: {
+      new(): SpeechRecognition
+    }
+  }
+}
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Mic, MessageSquare, History } from 'lucide-react'
+import { Mic, MessageSquare, History, Trash2 } from 'lucide-react'
 
 interface Message {
   id: string
@@ -13,10 +47,10 @@ interface Message {
   timestamp: Date
 }
 
-interface ChatHistory {
+interface JournalEntry {
   id: string
   title: string
-  timestamp: Date
+  timestamp: string
   messages: Message[]
 }
 
@@ -26,20 +60,94 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [transcript, setTranscript] = useState('')
-  const [chatHistories, setChatHistories] = useState<ChatHistory[]>([])
-  const [selectedHistory, setSelectedHistory] = useState<string | null>(null)
-  const [isAnimating, setIsAnimating] = useState(false)
+  const [liveTranscript, setLiveTranscript] = useState('')
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([])
+  const [selectedEntry, setSelectedEntry] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const audioPlaybackRef = useRef<HTMLAudioElement>(null)
   const conversationRef = useRef<HTMLDivElement>(null)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
 
   const apiBaseUrl = '/api'
 
   useEffect(() => {
     checkMicrophonePermission()
+    loadJournalEntries()
+    initializeSpeechRecognition()
   }, [])
+
+  const initializeSpeechRecognition = () => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+      const recognition = new SpeechRecognition()
+      
+      recognition.continuous = true
+      recognition.interimResults = true
+      recognition.lang = 'en-US'
+      
+      recognition.onstart = () => {
+        console.log('Speech recognition started')
+      }
+      
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        let interimTranscript = ''
+        let finalTranscript = ''
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript
+          } else {
+            interimTranscript += transcript
+          }
+        }
+        
+        // Update live transcript with interim results
+        setLiveTranscript(interimTranscript)
+        
+        // If we have final results, update the main transcript
+        if (finalTranscript) {
+          setTranscript(prev => prev + finalTranscript)
+        }
+      }
+      
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error('Speech recognition error:', event.error)
+        setStatus(`Speech recognition error: ${event.error}`)
+      }
+      
+      recognition.onend = () => {
+        console.log('Speech recognition ended')
+        if (isRecording) {
+          // Restart recognition if we're still recording
+          setTimeout(() => {
+            if (isRecording && recognitionRef.current) {
+              recognitionRef.current.start()
+            }
+          }, 100)
+        }
+      }
+      
+      recognitionRef.current = recognition
+    } else {
+      console.warn('Speech recognition not supported in this browser')
+    }
+  }
+
+  const loadJournalEntries = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/journal-entries`)
+      if (response.ok) {
+        const data = await response.json()
+        setJournalEntries(data.entries)
+      }
+    } catch (error) {
+      console.error('Error loading journal entries:', error)
+    }
+  }
 
   useEffect(() => {
     if (conversationRef.current) {
@@ -60,6 +168,15 @@ function App() {
 
   const startRecording = async () => {
     try {
+      // Clear previous transcripts
+      setLiveTranscript('')
+      setTranscript('')
+      
+      // Start live speech recognition
+      if (recognitionRef.current) {
+        recognitionRef.current.start()
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -118,6 +235,11 @@ function App() {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      // Stop speech recognition
+      if (recognitionRef.current) {
+        recognitionRef.current.stop()
+      }
+      
       mediaRecorderRef.current.stop()
       setIsRecording(false)
       setStatus('Processing...')
@@ -137,25 +259,28 @@ function App() {
 
   const processRecording = async () => {
     try {
-      if (audioChunksRef.current.length === 0) {
-        setStatus('No audio data recorded. Try again.')
-        setIsProcessing(false)
-        return
+      // Use the live transcript if available, otherwise fall back to backend transcription
+      let transcribedText = transcript.trim()
+      
+      // If we have live transcript but no final transcript, use the live one
+      if (!transcribedText && liveTranscript.trim()) {
+        transcribedText = liveTranscript.trim()
+        setTranscript(transcribedText)
       }
-
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-
-      if (audioBlob.size < 1000) {
-        setStatus('Recording too short. Please speak longer.')
-        setIsProcessing(false)
-        return
+      
+      // If still no text, try backend transcription as fallback
+      if (!transcribedText && audioChunksRef.current.length > 0) {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+        
+        if (audioBlob.size > 1000) {
+          transcribedText = await speechToText(audioBlob)
+          if (transcribedText && transcribedText.trim()) {
+            setTranscript(transcribedText)
+          }
+        }
       }
-
-      const transcribedText = await speechToText(audioBlob)
 
       if (transcribedText && transcribedText.trim()) {
-        setTranscript(transcribedText)
-        
         const userMessage: Message = {
           id: Date.now().toString(),
           sender: 'user',
@@ -178,6 +303,8 @@ function App() {
         setStatus('No speech detected. Try speaking louder or longer.')
       }
 
+      // Clear live transcript after processing
+      setLiveTranscript('')
       setIsProcessing(false)
       setStatus('Click to start recording')
 
@@ -250,84 +377,76 @@ function App() {
     }
   }
 
-  const saveChatHistory = () => {
+  const saveJournalEntry = () => {
     if (messages.length === 0) return
 
-    const newHistory: ChatHistory = {
+    setIsSaving(true)
+    
+    const newEntry: JournalEntry = {
       id: Date.now().toString(),
-      title: `Chat ${new Date().toLocaleDateString()}`,
-      timestamp: new Date(),
+      title: `Journal ${new Date().toLocaleDateString()}`,
+      timestamp: new Date().toISOString(),
       messages: [...messages]
     }
 
-    setChatHistories(prev => [newHistory, ...prev])
+    setJournalEntries(prev => [newEntry, ...prev])
+    
+    // Reset animation after delay
+    setTimeout(() => {
+      setIsSaving(false)
+    }, 800)
   }
 
-  const loadChatHistory = (historyId: string) => {
-    const history = chatHistories.find(h => h.id === historyId)
-    if (history) {
-      setMessages(history.messages)
-      setSelectedHistory(historyId)
+  const loadJournalEntry = (entryId: string) => {
+    const entry = journalEntries.find(e => e.id === entryId)
+    if (entry) {
+      setMessages(entry.messages)
+      setSelectedEntry(entryId)
+    }
+  }
+
+  const deleteJournalEntry = (entryId: string) => {
+    setJournalEntries(prev => prev.filter(e => e.id !== entryId))
+    if (selectedEntry === entryId) {
+      setSelectedEntry(null)
+      setMessages([])
     }
   }
 
   const resetConversation = async () => {
-    // If there are messages, animate them into history first
-    if (messages.length > 0) {
-      setIsAnimating(true)
-      
-      // Create history entry
-      const newHistory: ChatHistory = {
-        id: Date.now().toString(),
-        title: `Chat ${new Date().toLocaleDateString()}`,
-        timestamp: new Date(),
-        messages: [...messages]
-      }
-      
-      // Add to history
-      setChatHistories(prev => [newHistory, ...prev])
-      
-      // Wait for animation to complete
-      setTimeout(async () => {
-        try {
-          await fetch(`${apiBaseUrl}/reset-conversation`, {
-            method: 'POST'
-          })
+    try {
+      await fetch(`${apiBaseUrl}/reset-conversation`, {
+        method: 'POST'
+      })
 
-          setMessages([])
-          setTranscript('')
-          setSelectedHistory(null)
-          setStatus('Conversation reset. Ready to start fresh!')
-          setIsAnimating(false)
+      setMessages([])
+      setTranscript('')
+      setSelectedEntry(null)
+      setStatus('Conversation reset. Ready to start fresh!')
 
-        } catch (error) {
-          console.error('Error resetting conversation:', error)
-          setMessages([])
-          setTranscript('')
-          setSelectedHistory(null)
-          setStatus('Conversation reset locally')
-          setIsAnimating(false)
-        }
-      }, 800) // Animation duration
-    } else {
-      // No messages to animate, just reset normally
-      try {
-        await fetch(`${apiBaseUrl}/reset-conversation`, {
-          method: 'POST'
-        })
+    } catch (error) {
+      console.error('Error resetting conversation:', error)
+      setMessages([])
+      setTranscript('')
+      setSelectedEntry(null)
+      setStatus('Conversation reset locally')
+    }
+  }
 
-        setMessages([])
-        setTranscript('')
-        setSelectedHistory(null)
-        setStatus('Conversation reset. Ready to start fresh!')
+  const startNewConversation = async () => {
+    try {
+      await fetch(`${apiBaseUrl}/start-new-conversation`, {
+        method: 'POST'
+      })
 
-      } catch (error) {
-        console.error('Error resetting conversation:', error)
-        setMessages([])
-        setTranscript('')
-        setSelectedHistory(null)
-        setStatus('Conversation reset locally')
-      }
+      setMessages([])
+      setTranscript('')
+      setSelectedEntry(null)
+      setStatus('New conversation started. Ready to chat!')
+
+    } catch (error) {
+      console.error('Error starting new conversation:', error)
+      setStatus('Error starting new conversation')
     }
   }
 
@@ -389,21 +508,30 @@ function App() {
 
               <div className="flex gap-2">
                 <Button
-                  onClick={saveChatHistory}
+                  onClick={saveJournalEntry}
                   variant="outline"
                   size="sm"
-                  disabled={messages.length === 0}
+                  disabled={messages.length === 0 || isSaving}
                 >
-                  Save Chat
+                  {isSaving ? 'Saving...' : 'Save Journal'}
+                </Button>
+                <Button
+                  onClick={startNewConversation}
+                  variant="outline"
+                  size="sm"
+                  disabled={isSaving}
+                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                >
+                  New Chat
                 </Button>
                 <Button
                   onClick={resetConversation}
                   variant="outline"
                   size="sm"
-                  disabled={isAnimating}
+                  disabled={isSaving}
                   className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                 >
-                  {isAnimating ? 'Archiving...' : 'Reset'}
+                  Reset
                 </Button>
               </div>
             </CardContent>
@@ -418,58 +546,92 @@ function App() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Textarea
-                value={transcript}
-                onChange={(e) => setTranscript(e.target.value)}
-                placeholder="Your transcribed speech will appear here..."
-                className="min-h-[200px] resize-none"
-                readOnly
-              />
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Final Transcript:
+                </div>
+                <Textarea
+                  value={transcript}
+                  onChange={(e) => setTranscript(e.target.value)}
+                  placeholder="Your transcribed speech will appear here..."
+                  className="min-h-[80px] resize-none"
+                  readOnly
+                />
+                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Live Transcript:
+                </div>
+                <div className="min-h-[80px] p-3 border border-gray-200 dark:border-gray-700 rounded-md bg-gray-50 dark:bg-gray-800 text-sm">
+                  {liveTranscript ? (
+                    <span className="text-gray-600 dark:text-gray-300 italic">
+                      {liveTranscript}
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 dark:text-gray-500 italic">
+                      {isRecording ? 'Listening...' : 'Start recording to see live transcription'}
+                    </span>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Bottom Half - Chat History */}
+        {/* Bottom Half - Journal History */}
         <Card className="flex-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <History className="w-5 h-5" />
-              Chat History
+              Journal Logs
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[400px]">
-              {/* Chat Histories List */}
+              {/* Journal Entries List */}
               <div className="lg:col-span-1">
-                <h3 className="text-sm font-medium mb-2">Previous Conversations</h3>
+                <h3 className="text-sm font-medium mb-2">Previous Journal Entries</h3>
                 <ScrollArea className="h-[300px]">
                   <div className="space-y-2">
-                    {chatHistories.map((history, index) => (
+                    {journalEntries.map((entry, index) => (
                       <Card 
-                        key={history.id}
+                        key={entry.id}
                         className={`cursor-pointer transition-colors ${
-                          selectedHistory === history.id 
+                          selectedEntry === entry.id 
                             ? 'bg-yellow-100 dark:bg-yellow-900/20 border-yellow-500' 
                             : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                         } ${
-                          index === 0 && isAnimating ? 'chat-history-enter' : ''
+                          index === 0 && isSaving ? 'chat-history-enter' : ''
                         }`}
-                        onClick={() => loadChatHistory(history.id)}
+                        onClick={() => loadJournalEntry(entry.id)}
                       >
                         <CardContent className="p-3">
-                          <div className="text-sm font-medium">{history.title}</div>
-                          <div className="text-xs text-gray-500">
-                            {history.timestamp.toLocaleString()}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {history.messages.length} messages
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="text-sm font-medium">{entry.title}</div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(entry.timestamp).toLocaleString()}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {entry.messages.length} messages
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                deleteJournalEntry(entry.id)
+                              }}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
                           </div>
                         </CardContent>
                       </Card>
                     ))}
-                    {chatHistories.length === 0 && (
+                    {journalEntries.length === 0 && (
                       <div className="text-sm text-gray-500 text-center py-4">
-                        No chat histories yet
+                        No journal entries yet
                       </div>
                     )}
                   </div>
@@ -483,7 +645,7 @@ function App() {
                   <div 
                     ref={conversationRef}
                     className={`space-y-4 pr-4 ${
-                      isAnimating 
+                      isSaving 
                         ? 'chat-archive-animation' 
                         : ''
                     }`}
@@ -507,15 +669,15 @@ function App() {
                         </div>
                       </div>
                     ))}
-                    {messages.length === 0 && !isAnimating && (
+                    {messages.length === 0 && !isSaving && (
                       <div className="text-sm text-gray-500 text-center py-8">
                         Start a conversation by clicking the voice button
                       </div>
                     )}
-                    {isAnimating && (
+                    {isSaving && (
                       <div className="text-sm text-yellow-600 text-center py-8 flex items-center justify-center gap-2">
                         <div className="animate-spin w-4 h-4 border-2 border-yellow-600 border-t-transparent rounded-full"></div>
-                        Archiving conversation...
+                        Saving conversation...
                       </div>
                     )}
                   </div>
