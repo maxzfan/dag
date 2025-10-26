@@ -27,7 +27,7 @@ Output rules:
 {
   "type": "ProblemBrief",
   "category": "ci_cd|deploy|api_monitoring|alerts|data_pipeline|other",
-  "summary": "<one-sentence summary>",
+  "summary": "<summary>",
   "signals": ["repetitive"|"failing"|"manual"|"blocked"|"slow"|"urgent"]
 }
 ```
@@ -97,4 +97,3 @@ CLEAR PROBLEMS (should trigger ProblemBrief):
   "signals": ["manual", "repetitive", "slow"]
 }
 ```
-when
