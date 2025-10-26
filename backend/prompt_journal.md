@@ -26,13 +26,14 @@ Output rules:
 ```
 The JSON MUST be of "type": "ProblemBrief".
 
-Examples:
+Example:
 - Input: "Implemented movement and enemy pathing in Unity. All working great. Next time I'll polish collisions."
   Output (journal, bullets): 
   - Implemented movement
   - Added enemy pathing
   - Next: collision polish
 
+Example:
 -- Input: "My GitHub Actions job randomly fails and I need Slack alerts."
   Output (ProblemBrief JSON):
 ```json
