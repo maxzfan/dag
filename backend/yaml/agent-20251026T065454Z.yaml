@@ -1,0 +1,91 @@
+agent:
+  name: "weather-uptime-monitor"
+  seed: "weather2024secure8x9yn4"
+  port: 8000
+  endpoint: "http://localhost:8000"
+  log_level: "INFO"
+
+intervals:
+  - name: "health_check"
+    period: 300
+    function_name: "monitor_endpoints"
+    enabled: true
+    description: "Monitors weather website uptime every 5 minutes"
+
+integrations:
+  apis:
+    slack:
+      base_url: "https://slack.com/api"
+      api_key_env: "SLACK_TOKEN"
+      endpoints:
+        - name: "send_alert"
+          path: "/chat.postMessage"
+          method: "POST"
+    
+    email:
+      base_url: "https://api.email-service.com"
+      api_key_env: "EMAIL_API_KEY"
+      endpoints:
+        - name: "send_email"
+          path: "/v1/send"
+          method: "POST"
+    
+    webhook:
+      base_url: "${WEBHOOK_URL}"
+      api_key_env: "WEBHOOK_API_KEY"
+      endpoints:
+        - name: "notify"
+          path: "/notify"
+          method: "POST"
+
+storage:
+  keys:
+    - name: "last_check"
+      type: "datetime"
+    - name: "failure_count" 
+      type: "integer"
+    - name: "last_alert_sent"
+      type: "datetime"
+    - name: "alert_cooldown"
+      type: "integer"
+    - name: "uptime_percentage"
+      type: "float"
+
+metadata:
+  description: "Monitors weather website uptime and sends alerts on downtime events"
+  version: "0.1.0"
+  capabilities: ["monitoring", "alerting", "uptime_tracking"]
+  tags:
+    - "monitoring"
+    - "weather"
+    - "uptime"
+    - "alerts"
+
+behavior:
+  monitor_endpoints:
+    endpoints:
+      - url: "${WEATHER_SITE_URL}"
+        timeout: 30
+        expected_status: 200
+        validate_response: true
+        response_validation:
+          type: "content"
+          contains: ["weather", "forecast"]
+    alert_after_failures: 2
+    alert_cooldown: 1800
+    retry_attempts: 3
+    retry_delay: 5
+    alert_channels:
+      - "slack"
+      - "email"
+    alert_message_template: |
+      🚨 Weather Website Alert
+      Status: {status}
+      Time: {timestamp}
+      Response Time: {response_time}ms
+      Consecutive Failures: {failure_count}
+      Last Successful Check: {last_success}
+    uptime_tracking:
+      enabled: true
+      daily_report: true
+      report_time: "00:00"

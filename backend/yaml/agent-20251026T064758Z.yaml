@@ -1,0 +1,57 @@
+agent:
+  name: "website_health_monitor"
+  seed: "website monitoring agent seed phrase 123"
+  port: 8000
+  endpoint: "http://localhost:8000"
+  log_level: "INFO"
+
+intervals:
+  - name: "check_website_health"
+    period: 300 # Check every 5 minutes
+    function_name: "monitor_website"
+    enabled: true
+    description: "Checks if website is responding with 200 status code and sends alerts on failure"
+
+protocols:
+  - name: "monitoring_protocol"
+    primitives:
+      - "check_health"
+      - "send_alert"
+
+integrations:
+  apis:
+    - name: "notification_service"
+      base_url: "https://api.notification.com"
+      api_key_env: "NOTIFICATION_API_KEY"
+      endpoints:
+        - name: "send_alert"
+          path: "/v1/alerts"
+          method: "POST"
+
+storage:
+  keys:
+    - name: "last_check_status"
+      type: "string"
+    - name: "failure_count" 
+      type: "integer"
+    - name: "last_alert_sent"
+      type: "datetime"
+
+metadata:
+  description: "Monitors website health by checking HTTP response status every 5 minutes and sends alerts on failures"
+  version: "0.1.0"
+  capabilities: ["monitoring", "alerting"]
+  tags:
+    - "website"
+    - "monitoring"
+    - "alerts"
+
+behavior:
+  monitor_website:
+    url: "${WEBSITE_URL}"
+    timeout: 30
+    alert_after_failures: 2
+    alert_cooldown: 1800 # 30 minutes between alerts
+    alert_channels:
+      - "email"
+      - "sms"
