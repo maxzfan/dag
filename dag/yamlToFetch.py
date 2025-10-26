@@ -287,20 +287,20 @@ async def handle_{msg_name.lower()}(ctx: Context, sender: str, msg: {msg_name}):
                         # Generate sensible default values based on type
                         if field_type == 'str':
                             if 'id' in field_name.lower():
-                                response_fields.append(f'        {field_name}=msg.{field_name} if hasattr(msg, "{field_name}") else "generated_id"')
+                                response_fields.append(f'        {field_name}=msg.{field_name} if hasattr(msg, "{field_name}") else "generated_id",')
                             else:
-                                response_fields.append(f'        {field_name}="mock_{field_name}"')
+                                response_fields.append(f'        {field_name}="mock_{field_name}",')
                         elif field_type == 'int':
                             if 'time' in field_name.lower():
-                                response_fields.append(f'        {field_name}=int(time.time())')
+                                response_fields.append(f'        {field_name}=int(time.time()),')
                             else:
-                                response_fields.append(f'        {field_name}=0')
+                                response_fields.append(f'        {field_name}=0,')
                         elif field_type == 'float':
-                            response_fields.append(f'        {field_name}=0.0')
+                            response_fields.append(f'        {field_name}=0.0,')
                         elif field_type == 'bool':
-                            response_fields.append(f'        {field_name}=True')
+                            response_fields.append(f'        {field_name}=True,')
                         else:
-                            response_fields.append(f'        {field_name}={{}}')
+                            response_fields.append(f'        {field_name}={{}},')
                     
                     handler_code += f"""    response = {response_name}(
 {chr(10).join(response_fields)}

@@ -37,7 +37,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Mic, MessageSquare, History, Trash2, Bot } from 'lucide-react'
+import { Mic, MessageSquare, History, Trash2, Bot, RefreshCw } from 'lucide-react'
 
 interface Message {
   id: string
@@ -77,7 +77,17 @@ function App() {
   const apiBaseUrl = 'http://localhost:5001'
 
   // Available agents for the dashboard - will be populated by agent mode system
-  const [availableAgents, setAvailableAgents] = useState<Array<{id: string, name: string, description: string, icon: string, status: string, created_at?: string}>>([])
+  const [availableAgents, setAvailableAgents] = useState<Array<{
+    id: string, 
+    name: string, 
+    description: string, 
+    icon: string, 
+    status: string, 
+    created_at?: string,
+    deployment_status?: string,
+    testnet_address?: string,
+    deployed_at?: string
+  }>>([])
 
   useEffect(() => {
     checkMicrophonePermission()
@@ -143,7 +153,15 @@ function App() {
       const response = await fetch(`${apiBaseUrl}/journal-entries`)
       if (response.ok) {
         const data = await response.json()
-        setJournalEntries(data.entries)
+        // Ensure timestamps in messages are Date objects
+        const entriesWithDates = data.entries.map((entry: JournalEntry) => ({
+          ...entry,
+          messages: entry.messages.map((msg: Message) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp)
+          }))
+        }))
+        setJournalEntries(entriesWithDates)
       }
     } catch (error) {
       console.error('Error loading journal entries:', error)
@@ -423,7 +441,12 @@ function App() {
   const loadJournalEntry = (entryId: string) => {
     const entry = journalEntries.find(e => e.id === entryId)
     if (entry) {
-      setMessages(entry.messages)
+      // Ensure timestamps are Date objects
+      const messagesWithDates = entry.messages.map(msg => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp)
+      }))
+      setMessages(messagesWithDates)
       setSelectedEntry(entryId)
     }
   }
@@ -625,22 +648,33 @@ function App() {
                                 </p>
                               ) : (
                                 agentMessages.map((message) => (
-                                  <div
-                                    key={message.id}
-                                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                                  >
-                                    <div
-                                      className={`max-w-[80%] rounded-lg p-3 text-xs ${
-                                        message.sender === 'user'
-                                          ? 'bg-gradient-to-r from-amber-50 to-amber-100 text-gray-700'
-                                          : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
-                                      }`}
-                                    >
-                                      <div className="text-xs font-medium mb-1 opacity-80">
-                                        {message.sender === 'user' ? 'You' : 'Agent'}
+                                  <div key={message.id} className="space-y-2">
+                                    {message.sender === 'user' ? (
+                                      /* User Journal Entry - Prominent */
+                                      <div className="bg-gradient-to-r from-amber-50 to-amber-100 border-l-3 border-amber-400 rounded-r-md p-2 shadow-sm">
+                                        <div className="flex items-center gap-1 mb-1">
+                                          <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+                                          <span className="text-xs font-semibold text-amber-800">Entry</span>
+                                          <span className="text-xs text-amber-600">
+                                            {message.timestamp.toLocaleTimeString()}
+                                          </span>
+                                        </div>
+                                        <div className="text-gray-800 text-xs leading-relaxed font-medium">
+                                          {message.text}
+                                        </div>
                                       </div>
-                                      <div className="text-xs leading-relaxed">{message.text}</div>
-                                    </div>
+                                    ) : (
+                                      /* AI Response - Subtle annotation */
+                                      <div className="ml-4 bg-gray-50 dark:bg-gray-800 border-l-2 border-gray-300 dark:border-gray-600 rounded-r-sm p-2">
+                                        <div className="flex items-center gap-1 mb-1">
+                                          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                                          <span className="text-xs text-gray-500 dark:text-gray-400">Agent</span>
+                                        </div>
+                                        <div className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed italic">
+                                          {message.text}
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                 ))
                               )}
@@ -658,10 +692,30 @@ function App() {
             <div className="lg:col-span-2">
               <Card className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 h-full flex flex-col">
                 <CardHeader>
-                  <CardTitle className="text-gray-900 dark:text-white">Available Agents</CardTitle>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    AI agents created from your problem descriptions. Deploy them to start using their specialized capabilities.
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-gray-900 dark:text-white">
+                        Available Agents ({availableAgents.length})
+                        {selectedAgent && (
+                          <span className="ml-2 text-sm font-normal text-amber-600">
+                            • 1 selected
+                          </span>
+                        )}
+                      </CardTitle>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        AI agents created from your problem descriptions. Click to select/unselect agents, then deploy them to start using their specialized capabilities.
+                      </p>
+                    </div>
+                    <Button
+                      onClick={loadAgents}
+                      variant="outline"
+                      size="sm"
+                      className="text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Refresh
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                    <div className="h-[calc(100vh-12rem)] overflow-hidden">
@@ -677,67 +731,95 @@ function App() {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {availableAgents.map((agent) => (
-                          <div
-                            key={agent.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700 ${
-                              selectedAgent === agent.id
-                                ? 'bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-300'
-                                : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`}
-                            onClick={() => setSelectedAgent(agent.id)}
-                          >
-                            <div className="text-xl">{agent.icon}</div>
-                            <div className="flex-1">
-                              <h3 className="font-medium text-gray-900 dark:text-white">
-                                {agent.name}
-                              </h3>
-                              <p className="text-sm text-gray-600 dark:text-gray-300">
-                                {agent.description}
-                              </p>
-                              {agent.created_at && (
-                                <p className="text-xs text-gray-400 dark:text-gray-500">
-                                  Created: {new Date(agent.created_at).toLocaleDateString()}
+                        {availableAgents.map((agent) => {
+                          // Determine status and color based on agent data
+                          const getStatusInfo = (agent: any) => {
+                            if (agent.deployment_status === 'success' || agent.status === 'deployed') {
+                              return { status: 'Active', color: 'bg-green-500', textColor: 'text-green-700', bgColor: 'bg-green-50' }
+                            } else if (agent.status === 'generated' || agent.deployment_status === 'pending') {
+                              return { status: 'Pending', color: 'bg-yellow-500', textColor: 'text-yellow-700', bgColor: 'bg-yellow-50' }
+                            } else if (agent.status === 'error' || agent.deployment_status === 'failed') {
+                              return { status: 'Error', color: 'bg-red-500', textColor: 'text-red-700', bgColor: 'bg-red-50' }
+                            } else {
+                              return { status: 'Unknown', color: 'bg-gray-400', textColor: 'text-gray-700', bgColor: 'bg-gray-50' }
+                            }
+                          }
+                          
+                          const statusInfo = getStatusInfo(agent)
+                          
+                          return (
+                            <div
+                              key={agent.id}
+                              className={`flex items-center gap-4 p-4 rounded-lg cursor-pointer transition-all duration-200 border ${
+                                selectedAgent === agent.id
+                                  ? 'bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300 shadow-md ring-2 ring-amber-200'
+                                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                              }`}
+                              onClick={() => setSelectedAgent(selectedAgent === agent.id ? null : agent.id)}
+                            >
+                              <div className="relative">
+                                <div className="text-2xl">{agent.icon}</div>
+                                {selectedAgent === agent.id && (
+                                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
+                                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
+                                    {agent.name}
+                                  </h3>
+                                  <div className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.textColor}`}>
+                                    {statusInfo.status}
+                                  </div>
+                                </div>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 leading-relaxed">
+                                  {agent.description}
                                 </p>
-                              )}
+                                <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                                  {agent.created_at && (
+                                    <span>Created: {new Date(agent.created_at).toLocaleDateString()}</span>
+                                  )}
+                                  {agent.testnet_address && (
+                                    <span className="font-mono text-xs">Address: {agent.testnet_address}</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className={`w-3 h-3 rounded-full ${statusInfo.color} animate-pulse`}></div>
+                                <div className="flex gap-2">
+                                  {agent.status === 'generated' && (
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        deployAgent(agent.id)
+                                      }}
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                                    >
+                                      Deploy
+                                    </Button>
+                                  )}
+                                  <Button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      deleteAgent(agent.id)
+                                    }}
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs px-3 py-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                  >
+                                    Delete
+                                  </Button>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <div className={`w-2 h-2 rounded-full ${
-                                agent.status === 'deployed' ? 'bg-green-500' : 
-                                agent.status === 'generated' ? 'bg-yellow-500' : 'bg-gray-400'
-                              }`}></div>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-                                {agent.status}
-                              </span>
-                            </div>
-                            <div className="flex gap-1">
-                              {agent.status === 'generated' && (
-                                <Button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    deployAgent(agent.id)
-                                  }}
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs px-2 py-1"
-                                >
-                                  Deploy
-                                </Button>
-                              )}
-                              <Button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  deleteAgent(agent.id)
-                                }}
-                                size="sm"
-                                variant="outline"
-                                className="text-xs px-2 py-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                Delete
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -906,7 +988,19 @@ function App() {
               {/* Current Messages */}
               <div className="lg:col-span-2 -mt-2">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium text-white">Current Conversation</h3>
+                  <h3 className="text-sm font-medium text-white">
+                    {selectedEntry ? (
+                      <div className="flex items-center gap-2">
+                        <span>Journal Entry</span>
+                        <span className="text-xs text-gray-400">
+                          {journalEntries.find(e => e.id === selectedEntry)?.timestamp && 
+                            new Date(journalEntries.find(e => e.id === selectedEntry)!.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                    ) : (
+                      'Current Journal'
+                    )}
+                  </h3>
                   {selectedEntry && journalEntries.find(e => e.id === selectedEntry)?.summary && (
                     <Button
                       onClick={() => showConversationSummary(selectedEntry)}
@@ -928,22 +1022,33 @@ function App() {
                     }`}
                   >
                     {messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[80%] rounded-xl p-4 ${
-                            message.sender === 'user'
-                              ? 'bg-gradient-to-r from-amber-50 to-amber-100 text-gray-700'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
-                          }`}
-                        >
-                          <div className="text-xs font-medium mb-2 opacity-80">
-                            {message.sender === 'user' ? 'You' : 'Daggy AI'}
+                      <div key={message.id} className="space-y-3">
+                        {message.sender === 'user' ? (
+                          /* User Journal Entry - Prominent */
+                          <div className="bg-gradient-to-r from-amber-50 to-amber-100 border-l-4 border-amber-400 rounded-r-lg p-4 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                              <span className="text-sm font-semibold text-amber-800">Journal Entry</span>
+                              <span className="text-xs text-amber-600">
+                                {message.timestamp.toLocaleTimeString()}
+                              </span>
+                            </div>
+                            <div className="text-gray-800 text-base leading-relaxed font-medium">
+                              {message.text}
+                            </div>
                           </div>
-                          <div className="text-sm leading-relaxed">{message.text}</div>
-                        </div>
+                        ) : (
+                          /* AI Response - Subtle annotation */
+                          <div className="ml-6 bg-gray-50 dark:bg-gray-800 border-l-2 border-gray-300 dark:border-gray-600 rounded-r-md p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">AI Reflection</span>
+                            </div>
+                            <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed italic">
+                              {message.text}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                     {messages.length === 0 && !isSaving && (

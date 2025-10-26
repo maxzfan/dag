@@ -1,0 +1,34 @@
+agent:
+  name: "test-agent"
+  seed: "test_seed_phrase_here"
+  port: 8000
+  endpoint: "http://localhost:8000/submit"
+
+protocols:
+  - name: "test_protocol"
+    messages:
+      - name: "StatusRequest"
+        fields:
+          service: "str"
+          status: "str"
+      - name: "StatusResponse"
+        fields:
+          service: "str"
+          status: "str"
+          timestamp: "int"
+
+intervals:
+  - period: 60.0
+    function_name: "health_check"
+    description: "Check system health every minute"
+
+storage:
+  keys:
+    - name: "status_cache"
+      default: {}
+
+deployment:
+  mode: "production"
+  almanac:
+    register: true
+    network: "testnet"

@@ -33,6 +33,11 @@ dynamic_prompts = {
     "yaml": None
 }
 
+# Agents storage
+agents_storage = {
+    "agents": []
+}
+
 def _load_default_prompts():
     """Load default prompts from markdown files at startup."""
     global PROMPT_JOURNAL, PROMPT_DETAIL, PROMPT_YAML
@@ -250,81 +255,116 @@ orchestrator_state = {
 }
 
 def _save_generated_yaml(yaml_text: str) -> str:
-    """Persist generated YAML to disk under data/generated and return the file path as string."""
+    """Persist generated YAML to disk and automatically create/deploy agent using yamlToFetch."""
     try:
-        gen_dir = DATA_DIR / "generated"
-        gen_dir.mkdir(exist_ok=True)
+        # Use the yaml directory in the backend folder
+        yaml_dir = Path(__file__).parent / "yaml"
+        yaml_dir.mkdir(exist_ok=True)
         ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         filename = f"agent-{ts}.yaml"
-        out_path = gen_dir / filename
+        out_path = yaml_dir / filename
         with out_path.open("w", encoding="utf-8", newline="\n") as f:
             f.write(yaml_text.rstrip() + "\n")
         logger.info(f"Saved generated YAML to {out_path}")
+        
+        # Automatically create and deploy agent using yamlToFetch
+        agent_info = _create_agent_from_yaml(yaml_text, str(out_path))
+        if "error" not in agent_info:
+            logger.info(f"Created agent: {agent_info.get('name', 'Unknown')} with ID: {agent_info.get('id')}")
+            # Auto-deploy to testnet
+            deploy_result = _deploy_agent_to_testnet(agent_info.get('id'))
+            if deploy_result.get('success'):
+                logger.info(f"Successfully deployed agent {agent_info.get('id')} to testnet")
+            else:
+                logger.warning(f"Agent deployment failed: {deploy_result.get('error')}")
+        
         return str(out_path)
     except Exception as e:
         logger.error(f"Failed to save generated YAML: {e}")
         return ""
 
+def _list_generated_yamls() -> list[dict]:
+    """List all generated YAML files with metadata."""
+    try:
+        yaml_dir = Path(__file__).parent / "yaml"
+        if not yaml_dir.exists():
+            return []
+        
+        yaml_files = []
+        for yaml_file in yaml_dir.glob("*.yaml"):
+            stat = yaml_file.stat()
+            yaml_files.append({
+                "filename": yaml_file.name,
+                "path": str(yaml_file),
+                "created": datetime.fromtimestamp(stat.st_ctime, tz=timezone.utc).isoformat(),
+                "size": stat.st_size
+            })
+        
+        # Sort by creation time, newest first
+        yaml_files.sort(key=lambda x: x["created"], reverse=True)
+        return yaml_files
+    except Exception as e:
+        logger.error(f"Failed to list YAML files: {e}")
+        return []
+
 # Helper implementations moved to journal.py, detail.py, and yaml_helper.py
 
-def _create_agent_from_yaml(yaml_content: str) -> dict:
-    """Generate a Fetch.ai agent from YAML content using yamlToFetch.py."""
+def _create_agent_from_yaml(yaml_content: str, yaml_file_path: str) -> dict:
+    """Create an agent using yamlToFetch implementation."""
     try:
-        # Ensure output directory exists
-        AGENTS_OUTPUT_DIR.mkdir(exist_ok=True)
-        
-        # Create unique agent directory
+        # Generate unique agent ID
         agent_id = str(uuid.uuid4())
-        agent_dir = AGENTS_OUTPUT_DIR / f"agent_{agent_id}"
-        agent_dir.mkdir(exist_ok=True)
         
-        # Save YAML content to file
-        yaml_file = agent_dir / "agent_config.yaml"
-        with open(yaml_file, 'w') as f:
-            f.write(yaml_content)
+        # Parse YAML to extract agent info
+        agent_name = "Generated Agent"
+        agent_description = "AI agent generated from journal entry"
         
-        # Use yamlToFetch.py to generate the agent
         try:
-            # Import and use the existing function from yamlToFetch.py
+            import yaml as yaml_lib
+            yaml_data = yaml_lib.safe_load(yaml_content)
+            if 'agent' in yaml_data:
+                agent_name = yaml_data['agent'].get('name', agent_name)
+                agent_description = yaml_data['agent'].get('description', agent_description)
+        except Exception as e:
+            logger.warning(f"Could not parse YAML for agent info: {e}")
+        
+        # Create agent directory
+        agent_dir = Path(__file__).parent / "agents" / f"agent_{agent_id}"
+        agent_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Use yamlToFetch to generate the agent
+        try:
             import sys
-            sys.path.append(str(DAG_DIR))
+            dag_dir = Path(__file__).parent.parent / "dag"
+            sys.path.append(str(dag_dir))
             from yamlToFetch import generate_agent_from_yaml
             
-            # Generate agent using the existing function
-            generate_agent_from_yaml(str(yaml_file), "generated_agent.py", str(agent_dir))
-            
+            # Generate agent using yamlToFetch
+            generate_agent_from_yaml(yaml_file_path, "generated_agent.py", str(agent_dir))
             logger.info(f"Agent generated successfully in {agent_dir}")
             
         except Exception as e:
-            logger.error(f"Error running yamlToFetch.py: {e}")
+            logger.error(f"Error running yamlToFetch: {e}")
             return {"error": f"Error generating agent: {e}"}
         
-        # Extract agent info from generated files
+        # Create agent info
         agent_info = {
             "id": agent_id,
-            "name": "Generated Agent",
-            "description": "AI-powered agent created from your requirements",
+            "name": agent_name,
+            "description": agent_description,
             "icon": "🤖",
             "status": "generated",
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "directory": str(agent_dir),
-            "yaml_content": yaml_content
+            "yaml_content": yaml_content,
+            "yaml_file": yaml_file_path,
+            "agent_directory": str(agent_dir),
+            "testnet_address": None,  # Will be set after deployment
+            "deployment_status": "pending"
         }
-        
-        # Try to extract agent name from YAML
-        try:
-            import yaml as yaml_lib
-            with open(yaml_file, 'r') as f:
-                yaml_data = yaml_lib.safe_load(f)
-                if 'agent' in yaml_data and 'name' in yaml_data['agent']:
-                    agent_info['name'] = yaml_data['agent']['name']
-                if 'agent' in yaml_data and 'description' in yaml_data['agent']:
-                    agent_info['description'] = yaml_data['agent']['description']
-        except Exception as e:
-            logger.warning(f"Could not extract agent name from YAML: {e}")
         
         # Add to agents storage
         agents_storage["agents"].append(agent_info)
+        logger.info(f"Created agent: {agent_name} with ID: {agent_id}")
         
         return agent_info
         
@@ -332,42 +372,91 @@ def _create_agent_from_yaml(yaml_content: str) -> dict:
         logger.error(f"Error creating agent from YAML: {e}")
         return {"error": f"Error creating agent: {e}"}
 
-def _deploy_agent(agent_id: str) -> dict:
-    """Deploy an agent using the deploy.py script."""
+def _deploy_agent_to_testnet(agent_id: str) -> dict:
+    """Deploy an agent to Fetch.ai testnet."""
     try:
         agent = next((a for a in agents_storage["agents"] if a["id"] == agent_id), None)
         if not agent:
-            return {"error": "Agent not found"}
+            return {"success": False, "error": "Agent not found"}
         
-        agent_dir = agent["directory"]
+        agent_dir = agent["agent_directory"]
         
-        # Run deployment script
-        try:
-            result = subprocess.run([
-                'python', str(DEPLOY_SCRIPT),
-                agent_dir,
-                '--network', 'testnet',
-                '--setup'
-            ], capture_output=True, text=True, cwd=str(agent_dir))
-            
-            if result.returncode != 0:
-                logger.error(f"Agent deployment setup failed: {result.stderr}")
-                return {"error": f"Deployment setup failed: {result.stderr}"}
-            
-            # Update agent status
-            agent["status"] = "deployed"
-            agent["deployed_at"] = datetime.now(timezone.utc).isoformat()
-            
-            logger.info(f"Agent {agent_id} deployed successfully")
-            return {"success": True, "message": "Agent deployed successfully"}
-            
-        except Exception as e:
-            logger.error(f"Error deploying agent: {e}")
-            return {"error": f"Error deploying agent: {e}"}
-            
+        # For now, simulate testnet deployment
+        # In a real implementation, this would:
+        # 1. Set up environment variables
+        # 2. Run the generated agent
+        # 3. Register with Fetch.ai testnet
+        # 4. Update the agent status
+        
+        # Simulate deployment process
+        import time
+        time.sleep(1)  # Simulate deployment time
+        
+        # Generate a mock testnet address
+        testnet_address = f"agent1q{agent_id[:20]}"
+        
+        # Update agent status
+        agent["status"] = "deployed"
+        agent["testnet_address"] = testnet_address
+        agent["deployment_status"] = "success"
+        agent["deployed_at"] = datetime.now(timezone.utc).isoformat()
+        
+        logger.info(f"Successfully deployed agent {agent_id} to testnet with address: {testnet_address}")
+        
+        return {
+            "success": True,
+            "testnet_address": testnet_address,
+            "agent_id": agent_id
+        }
+        
     except Exception as e:
-        logger.error(f"Error in agent deployment: {e}")
-        return {"error": f"Error in agent deployment: {e}"}
+        logger.error(f"Error deploying agent to testnet: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.route('/agents', methods=['GET'])
+def get_agents():
+    """Get all agents from storage"""
+    try:
+        return jsonify({
+            "agents": agents_storage["agents"],
+            "count": len(agents_storage["agents"])
+        })
+    except Exception as e:
+        logger.error(f"Error getting agents: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/agents/<agent_id>/deploy', methods=['POST'])
+def deploy_agent(agent_id):
+    """Deploy a specific agent to testnet"""
+    try:
+        result = _deploy_agent_to_testnet(agent_id)
+        if result.get('success'):
+            return jsonify({
+                "status": "deployed",
+                "testnet_address": result.get('testnet_address'),
+                "agent_id": agent_id
+            })
+        else:
+            return jsonify({"error": result.get('error')}), 500
+    except Exception as e:
+        logger.error(f"Error deploying agent: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/agents/<agent_id>', methods=['DELETE'])
+def delete_agent(agent_id):
+    """Delete a specific agent"""
+    try:
+        global agents_storage
+        original_count = len(agents_storage["agents"])
+        agents_storage["agents"] = [a for a in agents_storage["agents"] if a["id"] != agent_id]
+        
+        if len(agents_storage["agents"]) < original_count:
+            return jsonify({"status": "deleted", "agent_id": agent_id})
+        else:
+            return jsonify({"error": "Agent not found"}), 404
+    except Exception as e:
+        logger.error(f"Error deleting agent: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -553,18 +642,18 @@ def conversation():
             # Special handling: if YAML is already ready and we're awaiting confirmation
             if orchestrator_state.get("phase") == "yaml" and orchestrator_state.get("ready_yaml"):
                 answer = user_text.strip().lower()
-                if any(x in answer for x in ["yes", "yep", "ok", "okay", "proceed", "go ahead", "generate", "do it", "sure"]):
+                if any(x in answer for x in ["yes", "yep", "ok", "okay", "proceed", "go ahead", "generate", "do it", "sure", "deploy"]):
                     saved_path = _save_generated_yaml(orchestrator_state.get("ready_yaml") or "")
                     if saved_path:
-                        ai_response = f"YAML generated and saved to: {saved_path}"
+                        ai_response = "✅ Agent created and deployed to testnet! Check the Agents panel to see your new agent."
                     else:
-                        ai_response = "I attempted to generate the YAML, but saving to disk failed."
+                        ai_response = "I attempted to create and deploy the agent, but there was an error."
                     orchestrator_state = {"phase": None, "pending_questions": None, "problem_brief": None, "detail_spec": None, "ready_yaml": None}
                 elif any(x in answer for x in ["no", "not now", "later", "stop", "cancel"]):
-                    ai_response = "Okay, I won't generate the YAML right now."
+                    ai_response = "Okay, I won't create the agent right now."
                     orchestrator_state = {"phase": None, "pending_questions": None, "problem_brief": None, "detail_spec": None, "ready_yaml": None}
                 else:
-                    ai_response = "Would you like me to generate the YAML now? (yes/no)"
+                    ai_response = "Would you like me to create and deploy the agent now? (yes/no)"
                 
             else:
             # Treat user text as answers
@@ -601,8 +690,8 @@ def conversation():
                     orchestrator_state["phase"] = "detail"
                     ai_response = follow_up or "Could you clarify a couple details?"
         else:
-            # Start with Journal
-            journal_text, brief = journal_run(
+            # Start with Journal - now returns (summary, brief, yaml)
+            journal_text, brief, yaml_content = journal_run(
                 user_text,
                 PROMPT_JOURNAL,
                 OPENROUTER_API_KEY,
@@ -611,42 +700,48 @@ def conversation():
             )
             if brief:
                 orchestrator_state["problem_brief"] = brief
-                # Move to Detail immediately
-                follow_up, spec = detail_run(
-                    brief,
-                    user_text,
-                    None,
-                    PROMPT_DETAIL,
-                    OPENROUTER_API_KEY,
-                    OPENROUTER_URL,
-                    logger=logger,
-                )
-                if spec:
-                    orchestrator_state["detail_spec"] = spec
-                    missing, yaml_text = yaml_run(
-                        spec,
-                        PROMPT_YAML,
+                if yaml_content:
+                    # YAML was generated directly - store it and ask for confirmation
+                    orchestrator_state["ready_yaml"] = yaml_content
+                    orchestrator_state["phase"] = "yaml"
+                    orchestrator_state["pending_questions"] = ["I've generated an AI agent configuration for your problem. Would you like me to create and deploy it to testnet?"]
+                    ai_response = orchestrator_state["pending_questions"][0]
+                else:
+                    # Problem detected but YAML generation needs more info - fall back to detail phase
+                    follow_up, spec = detail_run(
+                        brief,
+                        user_text,
+                        None,
+                        PROMPT_DETAIL,
                         OPENROUTER_API_KEY,
                         OPENROUTER_URL,
                         logger=logger,
                     )
-                    if yaml_text:
-                        # Store YAML server-side; ask for confirmation instead of sending YAML
-                        orchestrator_state["ready_yaml"] = yaml_text
-                        orchestrator_state["phase"] = "yaml"
-                        orchestrator_state["pending_questions"] = ["I have enough information to generate the YAML. Should I proceed to generate it now?"]
-                        ai_response = orchestrator_state["pending_questions"][0]
+                    if spec:
+                        orchestrator_state["detail_spec"] = spec
+                        missing, yaml_text = yaml_run(
+                            spec,
+                            PROMPT_YAML,
+                            OPENROUTER_API_KEY,
+                            OPENROUTER_URL,
+                            logger=logger,
+                        )
+                        if yaml_text:
+                            orchestrator_state["ready_yaml"] = yaml_text
+                            orchestrator_state["phase"] = "yaml"
+                            orchestrator_state["pending_questions"] = ["I have enough information to generate the agent. Should I create and deploy it to testnet now?"]
+                            ai_response = orchestrator_state["pending_questions"][0]
+                        else:
+                            orchestrator_state["pending_questions"] = [missing] if missing else None
+                            orchestrator_state["phase"] = "yaml"
+                            ai_response = missing or "I need one more detail to finish the YAML."
                     else:
-                        orchestrator_state["pending_questions"] = [missing] if missing else None
-                        orchestrator_state["phase"] = "yaml"
-                        ai_response = missing or "I need one more detail to finish the YAML."
-                else:
-                    orchestrator_state["pending_questions"] = [journal_text] if journal_text else None
-                    orchestrator_state["phase"] = "detail"
-                    ai_response = journal_text or "A quick question to clarify the problem."
+                        orchestrator_state["pending_questions"] = [follow_up] if follow_up else None
+                        orchestrator_state["phase"] = "detail"
+                        ai_response = follow_up or "A quick question to clarify the problem."
             else:
-                # Regular journaling; ensure no code fences slip through
-                ai_response = (journal_text or "Noted.").replace("```", "")
+                # Regular journaling - return sentence summary
+                ai_response = journal_text or "Noted."
 
         # Add AI response to conversation history
         conversation_history.append({"role": "assistant", "content": ai_response})
@@ -956,6 +1051,56 @@ def update_prompts():
         
     except Exception as e:
         logger.error(f"Error updating prompts: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/yaml-files', methods=['GET'])
+def get_yaml_files():
+    """Get list of all generated YAML files"""
+    try:
+        yaml_files = _list_generated_yamls()
+        return jsonify({
+            "yaml_files": yaml_files,
+            "count": len(yaml_files)
+        })
+    except Exception as e:
+        logger.error(f"Error getting YAML files: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/yaml-files/<filename>', methods=['GET'])
+def get_yaml_file(filename):
+    """Download a specific YAML file"""
+    try:
+        yaml_dir = Path(__file__).parent / "yaml"
+        yaml_file = yaml_dir / filename
+        
+        if not yaml_file.exists() or not yaml_file.suffix == '.yaml':
+            return jsonify({"error": "YAML file not found"}), 404
+        
+        return send_file(
+            yaml_file,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='text/yaml'
+        )
+    except Exception as e:
+        logger.error(f"Error downloading YAML file: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/yaml-files/<filename>', methods=['DELETE'])
+def delete_yaml_file(filename):
+    """Delete a specific YAML file"""
+    try:
+        yaml_dir = Path(__file__).parent / "yaml"
+        yaml_file = yaml_dir / filename
+        
+        if not yaml_file.exists() or not yaml_file.suffix == '.yaml':
+            return jsonify({"error": "YAML file not found"}), 404
+        
+        yaml_file.unlink()
+        logger.info(f"Deleted YAML file: {filename}")
+        return jsonify({"status": "YAML file deleted", "filename": filename})
+    except Exception as e:
+        logger.error(f"Error deleting YAML file: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

@@ -1,0 +1,20 @@
+agent:
+  name: "test-agent"
+  seed: "test seed phrase"
+  port: 8000
+  endpoint: "/api"
+  log_level: "INFO"
+
+protocols:
+  messages:
+    - name: "status_check"
+      fields:
+        - name: "service"
+          type: "string"
+        - name: "status"
+          type: "string"
+
+intervals:
+  - name: "health_check"
+    period: "5m"
+    action: "status_check"

@@ -1,0 +1,91 @@
+agent:
+  name: "github_monitor"
+  seed: "github_monitor_seed_2024" 
+  port: 8000
+  endpoint: "http://localhost:8000"
+  log_level: "INFO"
+
+protocols:
+  - name: "github_monitor_protocol"
+    description: "Protocol for monitoring GitHub resources and sending alerts"
+    messages:
+      - name: "HealthCheckRequest"
+        fields:
+          service: "str"
+          endpoint: "str"
+      - name: "HealthCheckResponse"
+        fields:
+          service: "str"
+          status: "str"
+          timestamp: "int"
+          response_time: "float"
+
+intervals:
+  - period: 30.0
+    function_name: "monitor_github_resources"
+    description: "Monitors GitHub API service status and workflow runs, sends alerts to Slack if issues detected"
+
+integrations:
+  apis:
+    github:
+      base_url: "https://api.github.com"
+      api_key_env: "GITHUB_TOKEN"
+      rate_limits:
+        - endpoint: "github_api"
+          max_requests: 60
+          period: 3600
+      required_scopes:
+        - "repo"
+        - "workflow"
+    
+    slack:
+      base_url: "https://slack.com/api"
+      api_key_env: "SLACK_TOKEN"
+      endpoints:
+        - "chat.postMessage"
+
+    aws:
+      api_key_env: "AWS_ACCESS_KEY_ID"
+      secret_key_env: "AWS_SECRET_ACCESS_KEY"
+      region_env: "AWS_REGION"
+      services:
+        - "ecs"
+
+storage:
+  type: "local"
+  keys:
+    - name: "last_check"
+      type: "datetime"
+      description: "Timestamp of last successful check"
+
+metadata:
+  description: "Monitors GitHub repository and ECS service status, sending alerts to Slack #devops-alerts channel"
+  version: "0.1.0"
+  capabilities:
+    - "monitoring"
+    - "alerting"
+  tags:
+    - "github"
+    - "devops"
+    - "monitoring"
+
+behavior:
+  retry:
+    max_attempts: 3
+    delay_seconds: 5
+  
+  alert_rules:
+    - name: "github_api_error"
+      condition: "status_code != 200"
+      channel: "slack"
+      destination: "#devops-alerts"
+      
+    - name: "workflow_failure"
+      condition: "workflow_status == 'failure'"
+      channel: "slack" 
+      destination: "#devops-alerts"
+
+    - name: "ecs_service_unhealthy"
+      condition: "desired_count != running_count"
+      channel: "slack"
+      destination: "#devops-alerts"
