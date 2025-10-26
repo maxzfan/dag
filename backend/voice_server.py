@@ -670,20 +670,23 @@ def get_agent_details(agent_id):
             return jsonify({"error": "Agent not found"}), 404
         
         # Get agent directory and check for .env file
-        agent_dir = Path(agent.get("agent_directory", ""))
+        agent_dir_path = agent.get("agent_directory")
         env_vars = {}
-        if agent_dir.exists():
-            env_file = agent_dir / ".env"
-            if env_file.exists():
-                try:
-                    with env_file.open("r", encoding="utf-8") as f:
-                        for line in f:
-                            line = line.strip()
-                            if line and not line.startswith("#") and "=" in line:
-                                key, value = line.split("=", 1)
-                                env_vars[key.strip()] = value.strip()
-                except Exception as e:
-                    logger.warning(f"Error reading .env file for agent {agent_id}: {e}")
+        
+        if agent_dir_path and agent_dir_path != "null":
+            agent_dir = Path(agent_dir_path)
+            if agent_dir.exists():
+                env_file = agent_dir / ".env"
+                if env_file.exists():
+                    try:
+                        with env_file.open("r", encoding="utf-8") as f:
+                            for line in f:
+                                line = line.strip()
+                                if line and not line.startswith("#") and "=" in line:
+                                    key, value = line.split("=", 1)
+                                    env_vars[key.strip()] = value.strip()
+                    except Exception as e:
+                        logger.warning(f"Error reading .env file for agent {agent_id}: {e}")
         
         return jsonify({
             "agent": agent,
@@ -702,19 +705,21 @@ def get_agent_logs(agent_id):
             return jsonify({"error": "Agent not found"}), 404
         
         # Get agent directory and check for log file
-        agent_dir = Path(agent.get("agent_directory", ""))
+        agent_dir_path = agent.get("agent_directory")
         logs = []
         
-        if agent_dir.exists():
-            log_file = agent_dir / "agent.log"
-            if log_file.exists():
-                try:
-                    with log_file.open("r", encoding="utf-8") as f:
-                        log_lines = f.readlines()
-                        # Return last 100 lines
-                        logs = [line.strip() for line in log_lines[-100:]]
-                except Exception as e:
-                    logger.warning(f"Error reading log file for agent {agent_id}: {e}")
+        if agent_dir_path and agent_dir_path != "null":
+            agent_dir = Path(agent_dir_path)
+            if agent_dir.exists():
+                log_file = agent_dir / "agent.log"
+                if log_file.exists():
+                    try:
+                        with log_file.open("r", encoding="utf-8") as f:
+                            log_lines = f.readlines()
+                            # Return last 100 lines
+                            logs = [line.strip() for line in log_lines[-100:]]
+                    except Exception as e:
+                        logger.warning(f"Error reading log file for agent {agent_id}: {e}")
         
         # If no log file, return some mock logs based on agent status
         if not logs:
