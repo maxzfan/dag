@@ -80,3 +80,7 @@ test_audio.*
 
 # backend data
 backend/data/
+
+# git keys
+gitkey
+gitkey.pub

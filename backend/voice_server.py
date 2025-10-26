@@ -3,6 +3,8 @@ import os
 import tempfile
 import uuid
 import json
+import subprocess
+import shutil
 from datetime import datetime, timezone
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
@@ -19,10 +21,46 @@ from yaml_helper import run_yaml as yaml_run
 SYSTEM_PROMPT = Path(__file__).with_name("systemprompt3.md").read_text(encoding="utf-8")
 
 
-# Multi-agent prompts
-PROMPT_JOURNAL = Path(__file__).with_name("prompt_journal.md").read_text(encoding="utf-8") if (Path(__file__).with_name("prompt_journal.md")).exists() else None
-PROMPT_DETAIL = Path(__file__).with_name("prompt_detail.md").read_text(encoding="utf-8") if (Path(__file__).with_name("prompt_detail.md")).exists() else None
-PROMPT_YAML = Path(__file__).with_name("prompt_yaml.md").read_text(encoding="utf-8") if (Path(__file__).with_name("prompt_yaml.md")).exists() else None
+# Multi-agent prompts - will be loaded dynamically from YAML
+PROMPT_JOURNAL = None
+PROMPT_DETAIL = None
+PROMPT_YAML = None
+
+# Dynamic prompt storage
+dynamic_prompts = {
+    "journal": None,
+    "detail": None,
+    "yaml": None
+}
+
+def _load_default_prompts():
+    """Load default prompts from markdown files at startup."""
+    global PROMPT_JOURNAL, PROMPT_DETAIL, PROMPT_YAML
+    
+    try:
+        # Load journal prompt
+        journal_file = Path(__file__).with_name("prompt_journal.md")
+        if journal_file.exists():
+            PROMPT_JOURNAL = journal_file.read_text(encoding="utf-8")
+            dynamic_prompts["journal"] = PROMPT_JOURNAL
+            logger.info("Loaded default journal prompt")
+        
+        # Load detail prompt
+        detail_file = Path(__file__).with_name("prompt_detail.md")
+        if detail_file.exists():
+            PROMPT_DETAIL = detail_file.read_text(encoding="utf-8")
+            dynamic_prompts["detail"] = PROMPT_DETAIL
+            logger.info("Loaded default detail prompt")
+        
+        # Load YAML prompt
+        yaml_file = Path(__file__).with_name("prompt_yaml.md")
+        if yaml_file.exists():
+            PROMPT_YAML = yaml_file.read_text(encoding="utf-8")
+            dynamic_prompts["yaml"] = PROMPT_YAML
+            logger.info("Loaded default YAML prompt")
+            
+    except Exception as e:
+        logger.error(f"Error loading default prompts: {e}")
 
 # Load environment variables
 load_dotenv()
@@ -33,6 +71,9 @@ CORS(app, origins=['http://localhost:8080', 'http://127.0.0.1:8080', 'http://loc
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Load default prompts at startup
+_load_default_prompts()
 
 # JSONL storage setup
 DATA_DIR = Path(__file__).with_name("data")
@@ -225,6 +266,108 @@ def _save_generated_yaml(yaml_text: str) -> str:
         return ""
 
 # Helper implementations moved to journal.py, detail.py, and yaml_helper.py
+
+def _create_agent_from_yaml(yaml_content: str) -> dict:
+    """Generate a Fetch.ai agent from YAML content using yamlToFetch.py."""
+    try:
+        # Ensure output directory exists
+        AGENTS_OUTPUT_DIR.mkdir(exist_ok=True)
+        
+        # Create unique agent directory
+        agent_id = str(uuid.uuid4())
+        agent_dir = AGENTS_OUTPUT_DIR / f"agent_{agent_id}"
+        agent_dir.mkdir(exist_ok=True)
+        
+        # Save YAML content to file
+        yaml_file = agent_dir / "agent_config.yaml"
+        with open(yaml_file, 'w') as f:
+            f.write(yaml_content)
+        
+        # Use yamlToFetch.py to generate the agent
+        try:
+            # Import and use the existing function from yamlToFetch.py
+            import sys
+            sys.path.append(str(DAG_DIR))
+            from yamlToFetch import generate_agent_from_yaml
+            
+            # Generate agent using the existing function
+            generate_agent_from_yaml(str(yaml_file), "generated_agent.py", str(agent_dir))
+            
+            logger.info(f"Agent generated successfully in {agent_dir}")
+            
+        except Exception as e:
+            logger.error(f"Error running yamlToFetch.py: {e}")
+            return {"error": f"Error generating agent: {e}"}
+        
+        # Extract agent info from generated files
+        agent_info = {
+            "id": agent_id,
+            "name": "Generated Agent",
+            "description": "AI-powered agent created from your requirements",
+            "icon": "🤖",
+            "status": "generated",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "directory": str(agent_dir),
+            "yaml_content": yaml_content
+        }
+        
+        # Try to extract agent name from YAML
+        try:
+            import yaml as yaml_lib
+            with open(yaml_file, 'r') as f:
+                yaml_data = yaml_lib.safe_load(f)
+                if 'agent' in yaml_data and 'name' in yaml_data['agent']:
+                    agent_info['name'] = yaml_data['agent']['name']
+                if 'agent' in yaml_data and 'description' in yaml_data['agent']:
+                    agent_info['description'] = yaml_data['agent']['description']
+        except Exception as e:
+            logger.warning(f"Could not extract agent name from YAML: {e}")
+        
+        # Add to agents storage
+        agents_storage["agents"].append(agent_info)
+        
+        return agent_info
+        
+    except Exception as e:
+        logger.error(f"Error creating agent from YAML: {e}")
+        return {"error": f"Error creating agent: {e}"}
+
+def _deploy_agent(agent_id: str) -> dict:
+    """Deploy an agent using the deploy.py script."""
+    try:
+        agent = next((a for a in agents_storage["agents"] if a["id"] == agent_id), None)
+        if not agent:
+            return {"error": "Agent not found"}
+        
+        agent_dir = agent["directory"]
+        
+        # Run deployment script
+        try:
+            result = subprocess.run([
+                'python', str(DEPLOY_SCRIPT),
+                agent_dir,
+                '--network', 'testnet',
+                '--setup'
+            ], capture_output=True, text=True, cwd=str(agent_dir))
+            
+            if result.returncode != 0:
+                logger.error(f"Agent deployment setup failed: {result.stderr}")
+                return {"error": f"Deployment setup failed: {result.stderr}"}
+            
+            # Update agent status
+            agent["status"] = "deployed"
+            agent["deployed_at"] = datetime.now(timezone.utc).isoformat()
+            
+            logger.info(f"Agent {agent_id} deployed successfully")
+            return {"success": True, "message": "Agent deployed successfully"}
+            
+        except Exception as e:
+            logger.error(f"Error deploying agent: {e}")
+            return {"error": f"Error deploying agent: {e}"}
+            
+    except Exception as e:
+        logger.error(f"Error in agent deployment: {e}")
+        return {"error": f"Error in agent deployment: {e}"}
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -775,6 +918,44 @@ Summary:"""
         
     except Exception as e:
         logger.error(f"Error generating summary: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/prompts', methods=['GET'])
+def get_prompts():
+    """Get current dynamic prompts"""
+    try:
+        return jsonify({
+            "prompts": dynamic_prompts,
+            "active_prompts": {
+                "journal": PROMPT_JOURNAL,
+                "detail": PROMPT_DETAIL,
+                "yaml": PROMPT_YAML
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting prompts: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/prompts/update', methods=['POST'])
+def update_prompts():
+    """Update prompts from YAML content"""
+    try:
+        data = request.get_json()
+        yaml_content = data.get('yaml_content', '')
+        
+        if not yaml_content:
+            return jsonify({"error": "No YAML content provided"}), 400
+        
+        extracted_prompts = _extract_prompts_from_yaml(yaml_content)
+        
+        return jsonify({
+            "success": True,
+            "extracted_prompts": extracted_prompts,
+            "updated_prompts": dynamic_prompts
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating prompts: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
