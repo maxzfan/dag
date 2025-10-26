@@ -13,6 +13,9 @@ from dotenv import load_dotenv
 import logging
 #from sysprompt import SYSTEM_PROMPT
 from pathlib import Path
+from journal import run_journal as journal_run
+from detail import run_detail as detail_run
+from yaml_helper import run_yaml as yaml_run
 SYSTEM_PROMPT = Path(__file__).with_name("systemprompt3.md").read_text(encoding="utf-8")
 
 
@@ -221,135 +224,7 @@ def _save_generated_yaml(yaml_text: str) -> str:
         logger.error(f"Failed to save generated YAML: {e}")
         return ""
 
-def _is_problem_heuristic(text: str) -> bool:
-    """Lightweight keyword check to confirm the user's text actually indicates a problem.
-    This reduces false positives from the Journal model.
-    """
-    if not text:
-        return False
-    t = text.lower()
-    keywords = [
-        "fail", "error", "crash", "broken", "stuck", "blocked", "flaky", "randomly fails",
-        "too slow", "slow", "alert", "monitor", "automate", "notify", "repetitive", "manual",
-        "every time", "keep having to"
-    ]
-    return any(k in t for k in keywords)
-
-def _extract_json_from_fence(text: str) -> dict | None:
-    try:
-        # Find first ```json ... ``` block
-        m = re.search(r"```json\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
-        if not m:
-            return None
-        import json as _json
-        return _json.loads(m.group(1))
-    except Exception:
-        return None
-
-def _extract_yaml_from_fence(text: str) -> str | None:
-    m = re.search(r"```yaml\s*(.*?)```", text, re.DOTALL | re.IGNORECASE)
-    if m:
-        return m.group(1).strip()
-    return None
-
-def _call_model_with_system(system_prompt: str, user_content: str, model: str = "anthropic/claude-3-haiku", max_tokens: int = 800, temperature: float = 0.2) -> str:
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_content},
-        ],
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-    }
-    resp = requests.post(OPENROUTER_URL, headers=headers, json=payload)
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
-
-def _run_journal(user_text: str) -> tuple[str, dict | None]:
-    """Return (assistant_text, problem_brief_dict_or_None)."""
-    if not PROMPT_JOURNAL:
-        # Fallback to single SYSTEM_PROMPT behavior
-        return "Noted.", None
-    try:
-        # Lower temperature to reduce creative deviations
-        content = _call_model_with_system(PROMPT_JOURNAL, user_text, model="anthropic/claude-3-haiku", max_tokens=400, temperature=0.1)
-        brief = _extract_json_from_fence(content)
-        if brief and isinstance(brief, dict) and brief.get("type") == "ProblemBrief" and _is_problem_heuristic(user_text):
-            return "I detected a problem worth automating. I'll dig into details.", brief
-        # Otherwise treat content as summary text — sanitize any code fences or YAML
-        # Remove any fenced code blocks just in case
-        sanitized = re.sub(r"```[\s\S]*?```", "", content).strip()
-        # Collapse excessive whitespace and limit to first 3 short lines
-        lines = [ln.strip() for ln in sanitized.splitlines() if ln.strip()]
-        if not lines:
-            return "Noted.", None
-        lines = lines[:3]
-        summary = "\n".join(lines)
-        # Ensure no lingering code fences
-        summary = summary.replace("```", "")
-        return summary, None
-    except Exception as e:
-        logger.error(f"Journal model error: {e}")
-        return "Noted.", None
-
-def _run_detail(problem_brief: dict, recent_user: str, current_spec: dict | None) -> tuple[str | None, dict | None]:
-    """Return (follow_up_question_text_or_None, detail_spec_dict_or_None)."""
-    if not PROMPT_DETAIL:
-        return None, None
-    try:
-        # Compose a compact input
-        import json as _json
-        pieces = [
-            "ProblemBrief:",
-            _json.dumps(problem_brief, ensure_ascii=False),
-        ]
-        if current_spec:
-            pieces += ["Current DetailSpec:", _json.dumps(current_spec, ensure_ascii=False)]
-        if recent_user:
-            pieces += ["Recent user message:", recent_user]
-        input_text = "\n".join(pieces)
-        content = _call_model_with_system(PROMPT_DETAIL, input_text, model="anthropic/claude-3-haiku", max_tokens=700)
-        obj = _extract_json_from_fence(content)
-        if obj and isinstance(obj, dict):
-            if obj.get("type") == "FollowUpQuestion":
-                qs = obj.get("questions") or []
-                question_text = qs[0] if qs else "Could you share more details?"
-                return question_text, None
-            if obj.get("type") == "DetailSpec":
-                return None, obj
-        # If model returned plain text, treat as follow-up question
-        return content.strip(), None
-    except Exception as e:
-        logger.error(f"Detail model error: {e}")
-        return "Could you clarify a couple details (service, frequency, action)?", None
-
-def _run_yaml(detail_spec: dict) -> tuple[str | None, str | None]:
-    """Return (missing_info_question_text_or_None, yaml_text_or_None)."""
-    if not PROMPT_YAML:
-        return None, None
-    try:
-        import json as _json
-        input_text = _json.dumps(detail_spec, ensure_ascii=False)
-        # Prefer a stronger model for YAML
-        content = _call_model_with_system(PROMPT_YAML, input_text, model="anthropic/claude-3-5-sonnet", max_tokens=1600, temperature=0.0)
-        yaml_text = _extract_yaml_from_fence(content)
-        if yaml_text:
-            return None, yaml_text
-        obj = _extract_json_from_fence(content)
-        if obj and isinstance(obj, dict) and obj.get("type") == "MissingInfoRequest":
-            qs = obj.get("questions") or []
-            question_text = qs[0] if qs else "I need one more detail to finalize the YAML."
-            return question_text, None
-        # Fallback
-        return None, content.strip()
-    except Exception as e:
-        logger.error(f"YAML model error: {e}")
-        return "I need one more detail to finalize the YAML (service, schedule, or actions).", None
+# Helper implementations moved to journal.py, detail.py, and yaml_helper.py
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -550,10 +425,24 @@ def conversation():
                 
             else:
             # Treat user text as answers
-                follow_up, spec = _run_detail(orchestrator_state.get("problem_brief") or {}, user_text, orchestrator_state.get("detail_spec"))
+                follow_up, spec = detail_run(
+                    orchestrator_state.get("problem_brief") or {},
+                    user_text,
+                    orchestrator_state.get("detail_spec"),
+                    PROMPT_DETAIL,
+                    OPENROUTER_API_KEY,
+                    OPENROUTER_URL,
+                    logger=logger,
+                )
                 if spec:
                     orchestrator_state["detail_spec"] = spec
-                    missing, yaml_text = _run_yaml(spec)
+                    missing, yaml_text = yaml_run(
+                        spec,
+                        PROMPT_YAML,
+                        OPENROUTER_API_KEY,
+                        OPENROUTER_URL,
+                        logger=logger,
+                    )
                     if yaml_text:
                         # Store YAML server-side; ask for confirmation instead of sending YAML
                         orchestrator_state["ready_yaml"] = yaml_text
@@ -570,14 +459,34 @@ def conversation():
                     ai_response = follow_up or "Could you clarify a couple details?"
         else:
             # Start with Journal
-            journal_text, brief = _run_journal(user_text)
+            journal_text, brief = journal_run(
+                user_text,
+                PROMPT_JOURNAL,
+                OPENROUTER_API_KEY,
+                OPENROUTER_URL,
+                logger=logger,
+            )
             if brief:
                 orchestrator_state["problem_brief"] = brief
                 # Move to Detail immediately
-                follow_up, spec = _run_detail(brief, user_text, None)
+                follow_up, spec = detail_run(
+                    brief,
+                    user_text,
+                    None,
+                    PROMPT_DETAIL,
+                    OPENROUTER_API_KEY,
+                    OPENROUTER_URL,
+                    logger=logger,
+                )
                 if spec:
                     orchestrator_state["detail_spec"] = spec
-                    missing, yaml_text = _run_yaml(spec)
+                    missing, yaml_text = yaml_run(
+                        spec,
+                        PROMPT_YAML,
+                        OPENROUTER_API_KEY,
+                        OPENROUTER_URL,
+                        logger=logger,
+                    )
                     if yaml_text:
                         # Store YAML server-side; ask for confirmation instead of sending YAML
                         orchestrator_state["ready_yaml"] = yaml_text
