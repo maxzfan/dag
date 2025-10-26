@@ -252,6 +252,9 @@ orchestrator_state = {
     "problem_brief": None,         # dict | None
     "detail_spec": None,           # dict | None
     "ready_yaml": None,            # str | None (stored server-side; never sent to frontend)
+    "last_question": None,         # str | None
+    "asked_questions": [],         # list[str]
+    "qa_history": [],              # list[{q,a}]
 }
 
 def _save_generated_yaml(yaml_text: str) -> str:
@@ -657,15 +660,46 @@ def conversation():
                 
             else:
             # Treat user text as answers
+                # Build enriched recent_user context to avoid repetition
+                last_q = orchestrator_state.get("last_question")
+                qa_hist = orchestrator_state.get("qa_history") or []
+                try:
+                    qa_lines = [f"- Q: {qa.get('q')}\n  A: {qa.get('a')}" for qa in qa_hist][-5:]
+                    history_block = "\n".join(qa_lines)
+                except Exception:
+                    history_block = ""
+                recent_context = (
+                    (f"Previous question: {last_q}\nUser answer: {user_text}\n" if last_q else f"User answer: {user_text}\n") +
+                    (f"Previously answered (last {len(qa_lines)}):\n{history_block}\n" if history_block else "") +
+                    "Do not repeat questions already asked; proceed to the next most critical missing detail."
+                )
                 follow_up, spec = detail_run(
                     orchestrator_state.get("problem_brief") or {},
-                    user_text,
+                    recent_context,
                     orchestrator_state.get("detail_spec"),
                     PROMPT_DETAIL,
                     OPENROUTER_API_KEY,
                     OPENROUTER_URL,
                     logger=logger,
                 )
+                # If follow_up repeats, try once more with explicit dedupe instruction
+                if follow_up and follow_up in (orchestrator_state.get("asked_questions") or []):
+                    alt_context = recent_context + "\nPreviously asked questions:\n" + "\n".join(orchestrator_state.get("asked_questions") or []) + "\nAsk a different question that was not asked before."
+                    alt_follow, alt_spec = detail_run(
+                        orchestrator_state.get("problem_brief") or {},
+                        alt_context,
+                        orchestrator_state.get("detail_spec"),
+                        PROMPT_DETAIL,
+                        OPENROUTER_API_KEY,
+                        OPENROUTER_URL,
+                        logger=logger,
+                    )
+                    # Prefer non-duplicate alternative
+                    if alt_spec:
+                        spec = alt_spec
+                        follow_up = None
+                    elif alt_follow and alt_follow not in (orchestrator_state.get("asked_questions") or []):
+                        follow_up = alt_follow
                 if spec:
                     orchestrator_state["detail_spec"] = spec
                     missing, yaml_text = yaml_run(
@@ -682,10 +716,23 @@ def conversation():
                         orchestrator_state["pending_questions"] = ["I have enough information to generate the YAML. Should I proceed to generate it now?"]
                         ai_response = orchestrator_state["pending_questions"][0]
                     else:
-                        orchestrator_state["pending_questions"] = [missing] if missing else None
+                        # Avoid repeating the same missing-info question
+                        if missing and missing not in (orchestrator_state.get("asked_questions") or []):
+                            orchestrator_state["pending_questions"] = [missing]
+                            orchestrator_state["last_question"] = missing
+                            orchestrator_state["asked_questions"].append(missing)
+                        else:
+                            orchestrator_state["pending_questions"] = None
                         orchestrator_state["phase"] = "yaml"
                         ai_response = missing or "I need one more detail to finish the YAML."
                 else:
+                    # Track asked question and user's answer to reduce repetition
+                    if orchestrator_state.get("last_question") and user_text:
+                        orchestrator_state["qa_history"].append({"q": orchestrator_state["last_question"], "a": user_text})
+                    if follow_up:
+                        orchestrator_state["last_question"] = follow_up
+                        if follow_up not in (orchestrator_state.get("asked_questions") or []):
+                            orchestrator_state["asked_questions"].append(follow_up)
                     orchestrator_state["pending_questions"] = [follow_up] if follow_up else None
                     orchestrator_state["phase"] = "detail"
                     ai_response = follow_up or "Could you clarify a couple details?"
@@ -698,6 +745,10 @@ def conversation():
                 OPENROUTER_URL,
                 logger=logger,
             )
+            try:
+                logger.info(f"Journal returned: brief_present={bool(brief)} journal_text_len={(len(journal_text) if journal_text else 0)} journal_text_preview={repr((journal_text or '')[:200])}")
+            except Exception:
+                pass
             if brief:
                 orchestrator_state["problem_brief"] = brief
                 if yaml_content:

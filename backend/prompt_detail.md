@@ -15,6 +15,22 @@ Output rules:
 ```json
 {
   "type": "DetailSpec",
+  "target_services": ["<service>"],
+  "repos_or_resources": ["<owner/repo>", "<resource-id>"],
+  "schedule_seconds": <seconds>,
+  "actions": ["<action>"],
+  "notifications": { "channel": "<channel>", "destination": "<destination>" },
+  "llm_needed": <true|false>,
+  "storage_keys": ["last_check"],
+  "rate_limits": [{ "endpoint": "<endpoint>", "max_requests": 60, "period": 3600 }],
+  "required_scopes": ["<scope>"]
+}
+```
+
+Example:
+```json
+{
+  "type": "DetailSpec",
   "target_services": ["github", "slack", "ecs"],
   "repos_or_resources": ["<owner/repo>", "<resource-id>"],
   "schedule_seconds": 300,

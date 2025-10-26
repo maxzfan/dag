@@ -92,6 +92,10 @@ def run_journal(user_text: str, prompt_journal: str | None, openrouter_api_key: 
             openrouter_api_key=openrouter_api_key,
             openrouter_url=openrouter_url,
         )
+        if content is None:
+            _log("run_journal: content is None")
+        else:
+            _log(f"run_journal: content_len={len(content)} preview={repr(content[:300])}")
         brief = _extract_json_from_fence(content)
         if brief and isinstance(brief, dict) and brief.get("type") == "ProblemBrief" and _is_problem_heuristic(user_text):
             # Problem detected - generate YAML directly
@@ -129,6 +133,7 @@ def run_journal(user_text: str, prompt_journal: str | None, openrouter_api_key: 
         # No problem detected - return sentence summary
         sanitized = re.sub(r"```[\s\S]*?```", "", content).strip()
         lines = [ln.strip() for ln in sanitized.splitlines() if ln.strip()]
+        _log(f"run_journal: sanitized_len={len(sanitized)} lines_count={len(lines)}")
         if not lines:
             return "Noted.", None, None
         
