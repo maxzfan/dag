@@ -1,0 +1,111 @@
+{
+  "agents": [
+    {
+      "id": "20251026T064008Z",
+      "name": "github_monitor",
+      "description": "Monitors GitHub repository and ECS service status, sending alerts to Slack #devops-alerts channel",
+      "icon": "🤖",
+      "status": "deployed",
+      "created_at": "2025-10-26T07:25:51.445997+00:00",
+      "yaml_content": "agent:\n  name: \"github_monitor\"\n  seed: \"github_monitor_seed_2024\" \n  port: 8000\n  endpoint: \"http://localhost:8000\"\n  log_level: \"INFO\"\n\nprotocols:\n  - name: \"github_monitor_protocol\"\n    description: \"Protocol for monitoring GitHub resources and sending alerts\"\n    messages:\n      - name: \"HealthCheckRequest\"\n        fields:\n          service: \"str\"\n          endpoint: \"str\"\n      - name: \"HealthCheckResponse\"\n        fields:\n          service: \"str\"\n          status: \"str\"\n          timestamp: \"int\"\n          response_time: \"float\"\n\nintervals:\n  - period: 30.0\n    function_name: \"monitor_github_resources\"\n    description: \"Monitors GitHub API service status and workflow runs, sends alerts to Slack if issues detected\"\n\nintegrations:\n  apis:\n    github:\n      base_url: \"https://api.github.com\"\n      api_key_env: \"GITHUB_TOKEN\"\n      rate_limits:\n        - endpoint: \"github_api\"\n          max_requests: 60\n          period: 3600\n      required_scopes:\n        - \"repo\"\n        - \"workflow\"\n    \n    slack:\n      base_url: \"https://slack.com/api\"\n      api_key_env: \"SLACK_TOKEN\"\n      endpoints:\n        - \"chat.postMessage\"\n\n    aws:\n      api_key_env: \"AWS_ACCESS_KEY_ID\"\n      secret_key_env: \"AWS_SECRET_ACCESS_KEY\"\n      region_env: \"AWS_REGION\"\n      services:\n        - \"ecs\"\n\nstorage:\n  type: \"local\"\n  keys:\n    - name: \"last_check\"\n      type: \"datetime\"\n      description: \"Timestamp of last successful check\"\n\nmetadata:\n  description: \"Monitors GitHub repository and ECS service status, sending alerts to Slack #devops-alerts channel\"\n  version: \"0.1.0\"\n  capabilities:\n    - \"monitoring\"\n    - \"alerting\"\n  tags:\n    - \"github\"\n    - \"devops\"\n    - \"monitoring\"\n\nbehavior:\n  retry:\n    max_attempts: 3\n    delay_seconds: 5\n  \n  alert_rules:\n    - name: \"github_api_error\"\n      condition: \"status_code != 200\"\n      channel: \"slack\"\n      destination: \"#devops-alerts\"\n      \n    - name: \"workflow_failure\"\n      condition: \"workflow_status == 'failure'\"\n      channel: \"slack\" \n      destination: \"#devops-alerts\"\n\n    - name: \"ecs_service_unhealthy\"\n      condition: \"desired_count != running_count\"\n      channel: \"slack\"\n      destination: \"#devops-alerts\"\n",
+      "yaml_file": "/Users/joanna/IdeaProjects/nexus/backend/yaml/agent-20251026T064008Z.yaml",
+      "agent_directory": "/Users/joanna/IdeaProjects/nexus/backend/agents/agent_20251026T064008Z",
+      "testnet_address": "agent1q20251026T064008Z",
+      "deployment_status": "success",
+      "capabilities": [
+        "monitoring",
+        "alerting"
+      ],
+      "config": {
+        "seed": "github_monitor_seed_2024",
+        "port": 8000,
+        "endpoint": "http://localhost:8000"
+      },
+      "deployed_at": "2025-10-26T08:09:44.004803+00:00"
+    },
+    {
+      "id": "20251026T064758Z",
+      "name": "website_health_monitor",
+      "description": "Monitors website health by checking HTTP response status every 5 minutes and sends alerts on failures",
+      "icon": "🤖",
+      "status": "deployed",
+      "created_at": "2025-10-26T07:25:51.446366+00:00",
+      "yaml_content": "agent:\n  name: \"website_health_monitor\"\n  seed: \"website monitoring agent seed phrase 123\"\n  port: 8000\n  endpoint: \"http://localhost:8000\"\n  log_level: \"INFO\"\n\nintervals:\n  - name: \"check_website_health\"\n    period: 300 # Check every 5 minutes\n    function_name: \"monitor_website\"\n    enabled: true\n    description: \"Checks if website is responding with 200 status code and sends alerts on failure\"\n\nprotocols:\n  - name: \"monitoring_protocol\"\n    primitives:\n      - \"check_health\"\n      - \"send_alert\"\n\nintegrations:\n  apis:\n    - name: \"notification_service\"\n      base_url: \"https://api.notification.com\"\n      api_key_env: \"NOTIFICATION_API_KEY\"\n      endpoints:\n        - name: \"send_alert\"\n          path: \"/v1/alerts\"\n          method: \"POST\"\n\nstorage:\n  keys:\n    - name: \"last_check_status\"\n      type: \"string\"\n    - name: \"failure_count\" \n      type: \"integer\"\n    - name: \"last_alert_sent\"\n      type: \"datetime\"\n\nmetadata:\n  description: \"Monitors website health by checking HTTP response status every 5 minutes and sends alerts on failures\"\n  version: \"0.1.0\"\n  capabilities: [\"monitoring\", \"alerting\"]\n  tags:\n    - \"website\"\n    - \"monitoring\"\n    - \"alerts\"\n\nbehavior:\n  monitor_website:\n    url: \"${WEBSITE_URL}\"\n    timeout: 30\n    alert_after_failures: 2\n    alert_cooldown: 1800 # 30 minutes between alerts\n    alert_channels:\n      - \"email\"\n      - \"sms\"\n",
+      "yaml_file": "/Users/joanna/IdeaProjects/nexus/backend/yaml/agent-20251026T064758Z.yaml",
+      "agent_directory": "/Users/joanna/IdeaProjects/nexus/backend/agents/agent_20251026T064758Z",
+      "testnet_address": "agent1q20251026T064758Z",
+      "deployment_status": "success",
+      "capabilities": [
+        "monitoring",
+        "alerting"
+      ],
+      "config": {
+        "seed": "website monitoring agent seed phrase 123",
+        "port": 8000,
+        "endpoint": "http://localhost:8000"
+      },
+      "deployed_at": "2025-10-26T08:20:54.736655+00:00"
+    },
+    {
+      "id": "20251026T065454Z",
+      "name": "weather-uptime-monitor",
+      "description": "Monitors weather website uptime and sends alerts on downtime events",
+      "icon": "🤖",
+      "status": "yaml_only",
+      "created_at": "2025-10-26T07:25:51.446713+00:00",
+      "yaml_content": "agent:\n  name: \"weather-uptime-monitor\"\n  seed: \"weather2024secure8x9yn4\"\n  port: 8000\n  endpoint: \"http://localhost:8000\"\n  log_level: \"INFO\"\n\nintervals:\n  - name: \"health_check\"\n    period: 300\n    function_name: \"monitor_endpoints\"\n    enabled: true\n    description: \"Monitors weather website uptime every 5 minutes\"\n\nintegrations:\n  apis:\n    slack:\n      base_url: \"https://slack.com/api\"\n      api_key_env: \"SLACK_TOKEN\"\n      endpoints:\n        - name: \"send_alert\"\n          path: \"/chat.postMessage\"\n          method: \"POST\"\n    \n    email:\n      base_url: \"https://api.email-service.com\"\n      api_key_env: \"EMAIL_API_KEY\"\n      endpoints:\n        - name: \"send_email\"\n          path: \"/v1/send\"\n          method: \"POST\"\n    \n    webhook:\n      base_url: \"${WEBHOOK_URL}\"\n      api_key_env: \"WEBHOOK_API_KEY\"\n      endpoints:\n        - name: \"notify\"\n          path: \"/notify\"\n          method: \"POST\"\n\nstorage:\n  keys:\n    - name: \"last_check\"\n      type: \"datetime\"\n    - name: \"failure_count\" \n      type: \"integer\"\n    - name: \"last_alert_sent\"\n      type: \"datetime\"\n    - name: \"alert_cooldown\"\n      type: \"integer\"\n    - name: \"uptime_percentage\"\n      type: \"float\"\n\nmetadata:\n  description: \"Monitors weather website uptime and sends alerts on downtime events\"\n  version: \"0.1.0\"\n  capabilities: [\"monitoring\", \"alerting\", \"uptime_tracking\"]\n  tags:\n    - \"monitoring\"\n    - \"weather\"\n    - \"uptime\"\n    - \"alerts\"\n\nbehavior:\n  monitor_endpoints:\n    endpoints:\n      - url: \"${WEATHER_SITE_URL}\"\n        timeout: 30\n        expected_status: 200\n        validate_response: true\n        response_validation:\n          type: \"content\"\n          contains: [\"weather\", \"forecast\"]\n    alert_after_failures: 2\n    alert_cooldown: 1800\n    retry_attempts: 3\n    retry_delay: 5\n    alert_channels:\n      - \"slack\"\n      - \"email\"\n    alert_message_template: |\n      🚨 Weather Website Alert\n      Status: {status}\n      Time: {timestamp}\n      Response Time: {response_time}ms\n      Consecutive Failures: {failure_count}\n      Last Successful Check: {last_success}\n    uptime_tracking:\n      enabled: true\n      daily_report: true\n      report_time: \"00:00\"\n",
+      "yaml_file": "/Users/joanna/IdeaProjects/nexus/backend/yaml/agent-20251026T065454Z.yaml",
+      "agent_directory": null,
+      "testnet_address": null,
+      "deployment_status": "yaml_ready",
+      "capabilities": [
+        "monitoring",
+        "alerting",
+        "uptime_tracking"
+      ],
+      "config": {
+        "seed": "weather2024secure8x9yn4",
+        "port": 8000,
+        "endpoint": "http://localhost:8000"
+      }
+    },
+    {
+      "id": "test-fixed",
+      "name": "test-agent",
+      "description": "AI agent: test-agent",
+      "icon": "🤖",
+      "status": "yaml_only",
+      "created_at": "2025-10-26T07:25:51.447216+00:00",
+      "yaml_content": "agent:\n  name: \"test-agent\"\n  seed: \"test_seed_phrase_here\"\n  port: 8000\n  endpoint: \"http://localhost:8000/submit\"\n\nprotocols:\n  - name: \"test_protocol\"\n    messages:\n      - name: \"StatusRequest\"\n        fields:\n          service: \"str\"\n          status: \"str\"\n      - name: \"StatusResponse\"\n        fields:\n          service: \"str\"\n          status: \"str\"\n          timestamp: \"int\"\n\nintervals:\n  - period: 60.0\n    function_name: \"health_check\"\n    description: \"Check system health every minute\"\n\nstorage:\n  keys:\n    - name: \"status_cache\"\n      default: {}\n\ndeployment:\n  mode: \"production\"\n  almanac:\n    register: true\n    network: \"testnet\"\n",
+      "yaml_file": "/Users/joanna/IdeaProjects/nexus/backend/yaml/test-agent-fixed.yaml",
+      "agent_directory": null,
+      "testnet_address": null,
+      "deployment_status": "yaml_ready",
+      "capabilities": [],
+      "config": {
+        "seed": "test_seed_phrase_here",
+        "port": 8000,
+        "endpoint": "http://localhost:8000/submit"
+      }
+    },
+    {
+      "id": "test-20231215T143022Z",
+      "name": "test-agent",
+      "description": "AI agent: test-agent",
+      "icon": "🤖",
+      "status": "yaml_only",
+      "created_at": "2025-10-26T07:25:51.446905+00:00",
+      "yaml_content": "agent:\n  name: \"test-agent\"\n  seed: \"test seed phrase\"\n  port: 8000\n  endpoint: \"/api\"\n  log_level: \"INFO\"\n\nprotocols:\n  messages:\n    - name: \"status_check\"\n      fields:\n        - name: \"service\"\n          type: \"string\"\n        - name: \"status\"\n          type: \"string\"\n\nintervals:\n  - name: \"health_check\"\n    period: \"5m\"\n    action: \"status_check\"\n",
+      "yaml_file": "/Users/joanna/IdeaProjects/nexus/backend/yaml/test-agent-20231215T143022Z.yaml",
+      "agent_directory": null,
+      "testnet_address": null,
+      "deployment_status": "yaml_ready",
+      "capabilities": [],
+      "config": {
+        "seed": "test seed phrase",
+        "port": 8000,
+        "endpoint": "/api"
+      }
+    }
+  ]
+}
