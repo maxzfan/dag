@@ -3,7 +3,7 @@ import requests
 from datetime import datetime, timezone
 
 
-def _is_problem_heuristic(text: str) -> bool:
+"""def _is_problem_heuristic(text: str) -> bool:
     if not text:
         return False
     t = text.lower()
@@ -12,7 +12,7 @@ def _is_problem_heuristic(text: str) -> bool:
         "too slow", "slow", "alert", "monitor", "automate", "notify", "repetitive", "manual",
         "every time", "keep having to"
     ]
-    return any(k in t for k in keywords)
+    return any(k in t for k in keywords)"""
 
 
 def _extract_json_from_fence(text: str):
@@ -47,7 +47,13 @@ def _call_model_with_system(system_prompt: str, user_content: str, *, model: str
 
 
 def run_journal(user_text: str, prompt_journal: str | None, openrouter_api_key: str, openrouter_url: str, logger=None) -> tuple[str, dict | None]:
+    def _log(m):
+        try:
+            (logger.info(m) if logger else print(m))
+        except Exception:
+            pass
     if not prompt_journal:
+        _log("run_journal: Noted due to missing prompt_journal")
         return "Noted.", None
     try:
         content = _call_model_with_system(
@@ -59,12 +65,19 @@ def run_journal(user_text: str, prompt_journal: str | None, openrouter_api_key: 
             openrouter_api_key=openrouter_api_key,
             openrouter_url=openrouter_url,
         )
+        if content is None:
+            _log("run_journal: content is None")
+        else:
+            _log(f"run_journal: content_len={len(content)} preview={repr(content[:300])}")
         brief = _extract_json_from_fence(content)
-        if brief and isinstance(brief, dict) and brief.get("type") == "ProblemBrief" and _is_problem_heuristic(user_text):
+        if brief and isinstance(brief, dict) and brief.get("type") == "ProblemBrief":
+            _log("run_journal: Detected ProblemBrief JSON; forwarding to Detail")
             return "I detected a problem worth automating. I'll dig into details.", brief
         sanitized = re.sub(r"```[\s\S]*?```", "", content).strip()
         lines = [ln.strip() for ln in sanitized.splitlines() if ln.strip()]
+        _log(f"run_journal: sanitized_len={len(sanitized)} lines_count={len(lines)}")
         if not lines:
+            _log(f"run_journal: Noted due to empty lines after sanitization preview={repr(sanitized[:300])}")
             return "Noted.", None
         lines = lines[:3]
         summary = "\n".join(lines)
@@ -73,4 +86,7 @@ def run_journal(user_text: str, prompt_journal: str | None, openrouter_api_key: 
     except Exception as e:
         if logger:
             logger.error(f"Journal model error: {e}")
+        else:
+            print(f"Journal model error: {e}")
+        _log("run_journal: Noted due to exception")
         return "Noted.", None

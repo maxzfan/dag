@@ -459,6 +459,10 @@ def conversation():
                     ai_response = follow_up or "Could you clarify a couple details?"
         else:
             # Start with Journal
+            try:
+                logger.info(f"Journal: prompt_present={bool(PROMPT_JOURNAL)} prompt_len={(len(PROMPT_JOURNAL) if PROMPT_JOURNAL else 0)} user_text_len={len(user_text)}")
+            except Exception:
+                pass
             journal_text, brief = journal_run(
                 user_text,
                 PROMPT_JOURNAL,
@@ -466,6 +470,10 @@ def conversation():
                 OPENROUTER_URL,
                 logger=logger,
             )
+            try:
+                logger.info(f"Journal returned: brief_present={bool(brief)} journal_text_len={(len(journal_text) if journal_text else 0)} journal_text_preview={repr((journal_text or '')[:200])}")
+            except Exception:
+                pass
             if brief:
                 orchestrator_state["problem_brief"] = brief
                 # Move to Detail immediately
@@ -504,6 +512,10 @@ def conversation():
             else:
                 # Regular journaling; ensure no code fences slip through
                 ai_response = (journal_text or "Noted.").replace("```", "")
+                try:
+                    logger.info(f"AI response (journal path): is_noted={ai_response.strip() == 'Noted.'} response_len={len(ai_response)} preview={repr(ai_response[:200])}")
+                except Exception:
+                    pass
 
         # Add AI response to conversation history
         conversation_history.append({"role": "assistant", "content": ai_response})
