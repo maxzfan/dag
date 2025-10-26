@@ -1,0 +1,300 @@
+{
+    "locations": [
+        "San Francisco",
+        "New York",
+        "Tokyo"
+    ],
+    "recipients": [
+        "parth2@stanford.edu"
+    ],
+    "email_log": [
+        {
+            "location": "San Francisco",
+            "timestamp": 1761471959,
+            "weather_data": {
+                "temperature": 58,
+                "feels_like": 57,
+                "conditions": "Overcast Clouds",
+                "humidity": 85,
+                "wind_speed": 6,
+                "pressure": 1017,
+                "visibility": 10,
+                "location": "San Francisco",
+                "country": "US",
+                "sunrise": "07:29 AM",
+                "sunset": "06:17 PM",
+                "cloud_coverage": 94
+            },
+            "subject": "SF Weather Alert: Cool & Cloudy Day Ahead 🌥️",
+            "body": "Good morning San Francisco!\n\nIt's a cool and overcast day in the city, with temperatures holding at 58°F (feeling like 57°F). We're seeing extensive cloud coverage (94%) and high humidity (85%), so expect a typical foggy SF day.\n\nKey Info:\n• Sunrise: 7:29 AM\n• Sunset: 6:17 PM\n• Wind: Light breeze at 6 mph\n• Visibility: Good (10 km)\n\nToday's Recommendations:\n- Layer up! A light jacket or sweater will be perfect for today's conditions\n- Carry a light umbrella just in case\n- Great day for indoor activities or visiting museums\n- Outdoor exercise? Morning would be best before humidity peaks\n\nNo severe weather alerts, but watch out for possible fog patches, especially near the bay.\n\nStay cozy, SF! ☁️",
+            "recipients": [
+                "parth2@stanford.edu"
+            ],
+            "emails_sent": 0,
+            "sent": true
+        },
+        {
+            "location": "New York",
+            "timestamp": 1761471973,
+            "weather_data": {
+                "temperature": 50,
+                "feels_like": 49,
+                "conditions": "Broken Clouds",
+                "humidity": 66,
+                "wind_speed": 3,
+                "pressure": 1028,
+                "visibility": 10,
+                "location": "New York",
+                "country": "US",
+                "sunrise": "04:19 AM",
+                "sunset": "03:00 PM",
+                "cloud_coverage": 75
+            },
+            "subject": "NYC Weather Update: Mild & Cloudy, 50°F - Plan Your Day!",
+            "body": "Hi there!\n\nHope you're having a good day! Here's your New York weather update:\n\nIt's a mild 50°F in the city right now, with broken cloud coverage (75% of the sky). While it feels pretty close to the actual temperature at 49°F, you'll notice relatively light winds at just 3 mph.\n\nKey points for today:\n• Sunrise: 4:19 AM\n• Sunset: 3:00 PM\n• Good visibility at 10 km\n• Moderate humidity at 66%\n\nRecommendations:\n• Layer up! A light jacket or sweater should be sufficient\n• Great conditions for outdoor activities with minimal wind\n• Consider indoor alternatives after 3 PM as it gets dark early\n\nNo severe weather alerts at this time. The stable pressure (1028 hPa) suggests consistent conditions should continue through the day.\n\nStay warm and have a great day!\n\nBest regards,\nYour Weather Team",
+            "recipients": [
+                "parth2@stanford.edu"
+            ],
+            "emails_sent": 0,
+            "sent": true
+        },
+        {
+            "location": "San Francisco",
+            "timestamp": 1761472208,
+            "weather_data": {
+                "temperature": 58,
+                "feels_like": 57,
+                "conditions": "Overcast Clouds",
+                "humidity": 85,
+                "wind_speed": 5,
+                "pressure": 1017,
+                "visibility": 10,
+                "location": "San Francisco",
+                "country": "US",
+                "sunrise": "07:29 AM",
+                "sunset": "06:17 PM",
+                "cloud_coverage": 94
+            },
+            "subject": "SF Weather Alert: Cool & Cloudy Day Ahead 🌥️",
+            "body": "Good morning San Francisco!\n\nIt's a cool and overcast day in the city, with temperatures holding at 58°F (feeling like 57°F). We're seeing extensive cloud coverage (94%) with high humidity at 85%, so expect a gray day ahead.\n\nKey Points for Today:\n• Sunrise: 7:29 AM | Sunset: 6:17 PM\n• Light winds at 5 mph\n• Excellent visibility at 10 km\n\nRecommendations:\n• Layer up! A light jacket or sweater will be perfect for today's conditions\n• Bring an umbrella just in case - high humidity and cloud coverage might mean light drizzle\n• Great conditions for indoor activities or visiting museums\n• Fog-friendly day for classic SF photos!\n\nNo severe weather alerts at this time, but the high humidity and cloud coverage are typical for our beloved fog city.\n\nStay cozy, San Francisco! ☁️\n\nBest regards,\nYour Weather Team",
+            "recipients": [
+                "parth2@stanford.edu"
+            ],
+            "emails_sent": 1,
+            "sent": true
+        },
+        {
+            "location": "New York",
+            "timestamp": 1761472222,
+            "weather_data": {
+                "temperature": 50,
+                "feels_like": 49,
+                "conditions": "Broken Clouds",
+                "humidity": 66,
+                "wind_speed": 3,
+                "pressure": 1028,
+                "visibility": 10,
+                "location": "New York",
+                "country": "US",
+                "sunrise": "04:19 AM",
+                "sunset": "03:00 PM",
+                "cloud_coverage": 75
+            },
+            "subject": "NYC Weather Update: Mild 50°F with Cloudy Skies Today",
+            "body": "Good morning!\n\nHere's your New York weather snapshot for today:\n\nIt's a mild 50°F outside, feeling like 49°F. We're seeing mostly cloudy skies (75% cloud coverage) with good visibility. The gentle breeze is just 3 mph, making it a comfortable day overall.\n\nWhat to expect:\n• Sunrise: 4:19 AM\n• Sunset: 3:00 PM (Early sunset today!)\n• Humidity: 66%\n\nRecommendations for today:\n• Layer up - a light jacket or sweater should be perfect\n• Good day for outdoor activities, despite the clouds\n• Consider indoor plans after 3 PM as it'll be dark early\n\nNo severe weather alerts at this time. The high pressure (1028 hPa) indicates stable conditions.\n\nHave a great day!\n\nBest regards,\nYour Weather Team",
+            "recipients": [
+                "parth2@stanford.edu"
+            ],
+            "emails_sent": 1,
+            "sent": true
+        },
+        {
+            "location": "Tokyo",
+            "timestamp": 1761472238,
+            "weather_data": {
+                "temperature": 61,
+                "feels_like": 61,
+                "conditions": "Broken Clouds",
+                "humidity": 93,
+                "wind_speed": 8,
+                "pressure": 1008,
+                "visibility": 10,
+                "location": "Tokyo",
+                "country": "JP",
+                "sunrise": "01:57 PM",
+                "sunset": "12:53 AM",
+                "cloud_coverage": 75
+            },
+            "subject": "Tokyo Weather Update: Mild & Cloudy with High Humidity",
+            "body": "Hi there!\n\nHere's your Tokyo weather update for today:\n\nIt's a mild 61°F in Tokyo with broken cloud coverage (75% of the sky). While the temperature is comfortable, the high humidity (93%) might make it feel a bit sticky outside. Winds are gentle at 8 mph, and visibility is good at 10 km.\n\nToday's sun schedule:\nSunrise: 1:57 PM\nSunset: 12:53 AM\n\nRecommendations for today:\n- Light layers are ideal for the moderate temperature\n- Consider bringing a light jacket as cloud cover may increase\n- Pack a small umbrella - high humidity and cloud coverage suggest possible light rain\n- Anti-frizz hair products might be helpful due to the humidity\n\nNote: The high humidity levels may make it feel warmer than the actual temperature. If you're planning outdoor activities, stay hydrated and choose breathable clothing.\n\nHave a great day in Tokyo!\n\nBest regards,\nYour Weather Team",
+            "recipients": [
+                "parth2@stanford.edu"
+            ],
+            "emails_sent": 1,
+            "sent": true
+        },
+        {
+            "location": "San Francisco",
+            "timestamp": 1761472372,
+            "weather_data": {
+                "temperature": 58,
+                "feels_like": 57,
+                "conditions": "Overcast Clouds",
+                "humidity": 85,
+                "wind_speed": 5,
+                "pressure": 1017,
+                "visibility": 10,
+                "location": "San Francisco",
+                "country": "US",
+                "sunrise": "07:29 AM",
+                "sunset": "06:17 PM",
+                "cloud_coverage": 94
+            },
+            "subject": "SF Weather Alert: Cool & Cloudy Today 🌥️",
+            "body": "Good morning!\n\nJust a quick weather update for San Francisco today. We're looking at a cool 58°F with overcast conditions throughout the day. The high humidity (85%) and cloudy skies (94% coverage) suggest a typical foggy SF day.\n\nKey Info:\n• Sunrise: 7:29 AM\n• Sunset: 6:17 PM\n• Light winds at 5 mph\n• Excellent visibility at 10 km\n\nRecommendations:\n- Layer up! A light jacket or sweater will be perfect for today\n- Great conditions for indoor activities or museums\n- If heading outdoors, morning fog should lift but keep a light jacket handy\n- Umbrella not needed, but conditions are ideal for fog drip\n\nNo severe weather alerts at this time, but typical SF microclimates may vary by neighborhood. Perfect weather for a cozy café visit! ☕\n\nStay warm!",
+            "recipients": [
+                "parth2@stanford.edu"
+            ],
+            "emails_sent": 1,
+            "sent": true
+        },
+        {
+            "location": "New York",
+            "timestamp": 1761472388,
+            "weather_data": {
+                "temperature": 50,
+                "feels_like": 49,
+                "conditions": "Broken Clouds",
+                "humidity": 66,
+                "wind_speed": 3,
+                "pressure": 1028,
+                "visibility": 10,
+                "location": "New York",
+                "country": "US",
+                "sunrise": "04:19 AM",
+                "sunset": "03:00 PM",
+                "cloud_coverage": 75
+            },
+            "subject": "NYC Weather Alert: Cool & Cloudy Today, 50°F",
+            "body": "Good morning!\n\nHere's your New York weather update for today. We're looking at a cool 50°F with broken cloud coverage (75% of the sky). While it feels just slightly cooler at 49°F, the light wind of 3 mph means it's relatively comfortable outside.\n\nKey Points:\n• Sunrise: 4:19 AM\n• Sunset: 3:00 PM\n• Good visibility at 10 km\n• Moderate humidity at 66%\n\nRecommendations for Today:\n• Layer up! A light jacket or sweater should be perfect\n• Keep an umbrella handy with the cloudy conditions\n• Great day for indoor activities, but outdoor activities are still doable\n• Early sunset today, so plan outdoor activities accordingly\n\nNo severe weather alerts at this time. The stable pressure (1028 hPa) indicates consistent conditions should continue throughout the day.\n\nStay warm and have a great day!\n\nBest regards,\nYour Weather Team",
+            "recipients": [
+                "parth2@stanford.edu"
+            ],
+            "emails_sent": 1,
+            "sent": true
+        },
+        {
+            "location": "Tokyo",
+            "timestamp": 1761472405,
+            "weather_data": {
+                "temperature": 61,
+                "feels_like": 61,
+                "conditions": "Moderate Rain",
+                "humidity": 93,
+                "wind_speed": 9,
+                "pressure": 1008,
+                "visibility": 8,
+                "location": "Tokyo",
+                "country": "JP",
+                "sunrise": "01:57 PM",
+                "sunset": "12:53 AM",
+                "cloud_coverage": 75,
+                "rain_1h": 3.94
+            },
+            "subject": "Rainy Day in Tokyo - Weather Alert 🌧️",
+            "body": "Good morning!\n\nJust a heads up about today's weather in Tokyo - we're experiencing moderate rainfall with temperatures at 61°F. The high humidity (93%) and continuous rain (3.94mm in the last hour) make it quite wet out there.\n\nKey points for today:\n• Moderate rain with cloudy conditions (75% cloud coverage)\n• Reduced visibility (8 km)\n• Mild temperatures but humid conditions\n\nRecommendations:\n✓ Bring a sturdy umbrella and raincoat\n✓ Wear water-resistant footwear\n✓ Consider indoor activities when possible\n✓ Allow extra time for commuting due to wet conditions\n\nSunset is expected at 12:53 AM, so please be extra careful if you're out during the evening hours as visibility may be further reduced due to the rain and darkness.\n\nStay dry and safe!\n\nBest regards,\nYour Weather Team",
+            "recipients": [
+                "parth2@stanford.edu"
+            ],
+            "emails_sent": 1,
+            "sent": true
+        },
+        {
+            "location": "San Francisco",
+            "timestamp": 1761472539,
+            "weather_data": {
+                "temperature": 58,
+                "feels_like": 57,
+                "conditions": "Overcast Clouds",
+                "humidity": 85,
+                "wind_speed": 5,
+                "pressure": 1017,
+                "visibility": 10,
+                "location": "San Francisco",
+                "country": "US",
+                "sunrise": "07:29 AM",
+                "sunset": "06:17 PM",
+                "cloud_coverage": 94
+            },
+            "subject": "SF Weather Alert: Cool & Cloudy Day Ahead ☁️",
+            "body": "Good morning!\n\nIt's a mild but heavily overcast day in San Francisco, with current temperatures at 58°F. The heavy cloud coverage (94%) is keeping things cool and gray, and you'll definitely notice the high humidity at 85%.\n\nKey conditions:\n• Feels like 57°F\n• Light winds at 5 mph\n• Good visibility despite cloud cover\n• Sunset expected at 6:17 PM\n\nRecommendations for today:\n• Layer up! A light jacket or sweater will be comfortable\n• Keep an umbrella handy - high humidity and cloud coverage suggest possible drizzle\n• Perfect weather for indoor activities or visiting museums\n• Outdoor exercise should be comfortable with the mild temps\n\nNote: No severe weather alerts, but the high humidity might make it feel a bit muggy. If you're heading out early, sunrise was at 7:29 AM.\n\nStay cozy!",
+            "recipients": [
+                "parth2@stanford.edu"
+            ],
+            "emails_sent": 1,
+            "sent": true
+        },
+        {
+            "location": "New York",
+            "timestamp": 1761472554,
+            "weather_data": {
+                "temperature": 50,
+                "feels_like": 49,
+                "conditions": "Broken Clouds",
+                "humidity": 66,
+                "wind_speed": 3,
+                "pressure": 1028,
+                "visibility": 10,
+                "location": "New York",
+                "country": "US",
+                "sunrise": "04:19 AM",
+                "sunset": "03:00 PM",
+                "cloud_coverage": 75
+            },
+            "subject": "NYC Weather Update: Mild & Cloudy, 50°F",
+            "body": "Good morning!\n\nHere's your New York weather snapshot for today:\n\nIt's a mild 50°F with broken cloud coverage (75% of the sky). While the temperature feels pretty close to actual at 49°F, you'll notice mostly cloudy skies throughout the day. Wind conditions are very light at just 3 mph, making for a calm day.\n\nToday's Timeline:\nSunrise: 4:19 AM\nSunset: 3:00 PM\n\nWhat to Wear/Bring:\n- Light layers are ideal for today's temperature\n- A light jacket or sweater should suffice\n- No umbrella needed\n\nPerfect Day For:\n- Outdoor walks or running errands\n- Park visits\n- Outdoor dining (with a light jacket)\n\nNote: Visibility is good at 10 km, so no travel concerns today. The high pressure (1028 hPa) indicates stable conditions.\n\nHave a great day!\n\nBest regards,\nYour Weather Team",
+            "recipients": [
+                "parth2@stanford.edu"
+            ],
+            "emails_sent": 1,
+            "sent": true
+        },
+        {
+            "location": "Tokyo",
+            "timestamp": 1761472568,
+            "weather_data": {
+                "temperature": 61,
+                "feels_like": 61,
+                "conditions": "Moderate Rain",
+                "humidity": 93,
+                "wind_speed": 9,
+                "pressure": 1008,
+                "visibility": 8,
+                "location": "Tokyo",
+                "country": "JP",
+                "sunrise": "01:57 PM",
+                "sunset": "12:53 AM",
+                "cloud_coverage": 75,
+                "rain_1h": 3.94
+            },
+            "subject": "Rainy Day in Tokyo - Weather Alert 🌧️",
+            "body": "Hello from Tokyo!\n\nIt's a wet one today with moderate rain and temperatures at 61°F. The high humidity (93%) and continuous rainfall (3.94mm in the last hour) are making for quite damp conditions. Visibility is reduced to 8km, so please take extra care when traveling.\n\nWhat to expect:\n• Moderate rain continuing\n• Cool, humid conditions\n• Light winds at 9 mph\n• Cloudy skies (75% coverage)\n• Sunset expected at 12:53 AM\n\nRecommendations for today:\n• Bring a sturdy umbrella and raincoat\n• Wear water-resistant footwear\n• Consider indoor activities if possible\n• Allow extra time for commuting due to wet conditions\n\nWeather Alert: The combination of moderate rain and high humidity may cause slippery conditions. Please exercise caution when walking on wet surfaces.\n\nStay dry and safe!\n\nBest regards,\nYour Weather Team",
+            "recipients": [
+                "parth2@stanford.edu"
+            ],
+            "emails_sent": 1,
+            "sent": true
+        }
+    ],
+    "last_run": 0,
+    "email_preferences": {
+        "send_on_conditions": [
+            "Rain",
+            "Snow",
+            "Thunderstorm",
+            "Extreme"
+        ],
+        "send_all": true,
+        "units": "imperial"
+    }
+}
