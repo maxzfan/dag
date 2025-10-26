@@ -81,6 +81,6 @@ test_audio.*
 # backend data
 backend/data/
 
-# gitkey
+# git keys
 gitkey
 gitkey.pub

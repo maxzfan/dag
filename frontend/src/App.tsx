@@ -77,11 +77,12 @@ function App() {
   const apiBaseUrl = 'http://localhost:5001'
 
   // Available agents for the dashboard - will be populated by agent mode system
-  const availableAgents: Array<{id: string, name: string, description: string, icon: string, status: string}> = []
+  const [availableAgents, setAvailableAgents] = useState<Array<{id: string, name: string, description: string, icon: string, status: string, created_at?: string}>>([])
 
   useEffect(() => {
     checkMicrophonePermission()
     loadJournalEntries()
+    loadAgents()
     initializeSpeechRecognition()
   }, [])
 
@@ -146,6 +147,59 @@ function App() {
       }
     } catch (error) {
       console.error('Error loading journal entries:', error)
+    }
+  }
+
+  const loadAgents = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/agents`)
+      if (response.ok) {
+        const data = await response.json()
+        setAvailableAgents(data.agents)
+      }
+    } catch (error) {
+      console.error('Error loading agents:', error)
+    }
+  }
+
+  const deployAgent = async (agentId: string) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/agents/${agentId}/deploy`, {
+        method: 'POST'
+      })
+      if (response.ok) {
+        // Reload agents to update status
+        await loadAgents()
+        setStatus('Agent deployed successfully!')
+      } else {
+        const error = await response.json()
+        setStatus(`Deployment failed: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error deploying agent:', error)
+      setStatus('Error deploying agent')
+    }
+  }
+
+  const deleteAgent = async (agentId: string) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/agents/${agentId}`, {
+        method: 'DELETE'
+      })
+      if (response.ok) {
+        // Reload agents to update list
+        await loadAgents()
+        if (selectedAgent === agentId) {
+          setSelectedAgent(null)
+        }
+        setStatus('Agent deleted successfully!')
+      } else {
+        const error = await response.json()
+        setStatus(`Deletion failed: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error deleting agent:', error)
+      setStatus('Error deleting agent')
     }
   }
 
@@ -606,7 +660,7 @@ function App() {
                 <CardHeader>
                   <CardTitle className="text-gray-900 dark:text-white">Available Agents</CardTitle>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Agents will appear here when the system determines which ones to deploy
+                    AI agents created from your problem descriptions. Deploy them to start using their specialized capabilities.
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -618,7 +672,7 @@ function App() {
                           No agents available
                         </h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
-                          The agent mode system will analyze your needs and deploy specialized agents here.
+                          Create agents by describing problems in Journal mode. The system will automatically generate specialized agents for you.
                         </p>
                       </div>
                     ) : (
@@ -641,14 +695,46 @@ function App() {
                               <p className="text-sm text-gray-600 dark:text-gray-300">
                                 {agent.description}
                               </p>
+                              {agent.created_at && (
+                                <p className="text-xs text-gray-400 dark:text-gray-500">
+                                  Created: {new Date(agent.created_at).toLocaleDateString()}
+                                </p>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
                               <div className={`w-2 h-2 rounded-full ${
-                                agent.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
+                                agent.status === 'deployed' ? 'bg-green-500' : 
+                                agent.status === 'generated' ? 'bg-yellow-500' : 'bg-gray-400'
                               }`}></div>
                               <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                                 {agent.status}
                               </span>
+                            </div>
+                            <div className="flex gap-1">
+                              {agent.status === 'generated' && (
+                                <Button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    deployAgent(agent.id)
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs px-2 py-1"
+                                >
+                                  Deploy
+                                </Button>
+                              )}
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  deleteAgent(agent.id)
+                                }}
+                                size="sm"
+                                variant="outline"
+                                className="text-xs px-2 py-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                Delete
+                              </Button>
                             </div>
                           </div>
                         ))}
