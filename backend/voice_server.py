@@ -80,6 +80,137 @@ logger = logging.getLogger(__name__)
 # Load default prompts at startup
 _load_default_prompts()
 
+def _load_existing_agents():
+    """Load existing agents from YAML files on startup."""
+    global agents_storage
+    
+    try:
+        yaml_dir = Path(__file__).parent / "yaml"
+        
+        if not yaml_dir.exists():
+            logger.info("No yaml directory found, starting with empty agent list")
+            return
+        
+        loaded_count = 0
+        
+        # Scan YAML files
+        for yaml_file in yaml_dir.glob("*.yaml"):
+            try:
+                with yaml_file.open("r", encoding="utf-8") as f:
+                    yaml_content = f.read()
+                
+                # Parse YAML to extract agent info
+                try:
+                    import yaml as yaml_lib
+                    yaml_data = yaml_lib.safe_load(yaml_content)
+                    
+                    if yaml_data and 'agent' in yaml_data:
+                        agent_config = yaml_data['agent']
+                        agent_name = agent_config.get('name', 'Unknown Agent')
+                        agent_seed = agent_config.get('seed', '')
+                        agent_port = agent_config.get('port', 8000)
+                        agent_endpoint = agent_config.get('endpoint', 'http://localhost:8000')
+                        
+                        # Generate a unique ID from the filename or agent name
+                        agent_id = yaml_file.stem.replace('agent-', '').replace('test-agent-', '')
+                        if not agent_id or agent_id == yaml_file.stem:
+                            # Fallback: generate ID from agent name
+                            agent_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, agent_name))[:8]
+                        
+                        # Check if agent directory exists
+                        agents_dir = Path(__file__).parent / "agents"
+                        agent_dir_name = f"agent_{agent_id}"
+                        agent_dir = agents_dir / agent_dir_name
+                        
+                        # Determine status based on whether agent directory exists
+                        status = "yaml_only"
+                        if agent_dir.exists():
+                            generated_agent_file = agent_dir / "generated_agent.py"
+                            if generated_agent_file.exists():
+                                status = "generated"
+                            else:
+                                status = "directory_exists"
+                        
+                        # Extract metadata if available
+                        metadata = yaml_data.get('metadata', {})
+                        description = metadata.get('description', f"AI agent: {agent_name}")
+                        capabilities = metadata.get('capabilities', [])
+                        
+                        # Create agent info
+                        agent_info = {
+                            "id": agent_id,
+                            "name": agent_name,
+                            "description": description,
+                            "icon": "🤖",
+                            "status": status,
+                            "created_at": datetime.fromtimestamp(yaml_file.stat().st_ctime, tz=timezone.utc).isoformat(),
+                            "yaml_content": yaml_content,
+                            "yaml_file": str(yaml_file),
+                            "agent_directory": str(agent_dir) if agent_dir.exists() else None,
+                            "testnet_address": None,
+                            "deployment_status": "yaml_ready",
+                            "capabilities": capabilities,
+                            "config": {
+                                "seed": agent_seed,
+                                "port": agent_port,
+                                "endpoint": agent_endpoint
+                            }
+                        }
+                        
+                        # Check if agent is already in storage (avoid duplicates)
+                        if not any(a["id"] == agent_id for a in agents_storage["agents"]):
+                            agents_storage["agents"].append(agent_info)
+                            loaded_count += 1
+                            logger.info(f"Loaded agent from YAML: {agent_name} (ID: {agent_id}, Status: {status})")
+                        else:
+                            logger.debug(f"Agent {agent_id} already in storage, skipping")
+                    
+                except Exception as e:
+                    logger.warning(f"Could not parse YAML file {yaml_file}: {e}")
+                    continue
+                    
+            except Exception as e:
+                logger.warning(f"Could not read YAML file {yaml_file}: {e}")
+                continue
+        
+        logger.info(f"Loaded {loaded_count} agents from YAML files on startup")
+        
+    except Exception as e:
+        logger.error(f"Error loading existing agents: {e}")
+
+def _save_agents_to_file():
+    """Save current agents storage to a JSON file for persistence."""
+    try:
+        agents_file = Path(__file__).parent / "agents_storage.json"
+        with agents_file.open("w", encoding="utf-8") as f:
+            json.dump(agents_storage, f, ensure_ascii=False, indent=2)
+        logger.debug("Saved agents storage to file")
+    except Exception as e:
+        logger.error(f"Error saving agents storage: {e}")
+
+def _load_agents_from_file():
+    """Load agents storage from JSON file if it exists."""
+    global agents_storage
+    
+    try:
+        agents_file = Path(__file__).parent / "agents_storage.json"
+        if agents_file.exists():
+            with agents_file.open("r", encoding="utf-8") as f:
+                saved_storage = json.load(f)
+                if "agents" in saved_storage:
+                    agents_storage["agents"] = saved_storage["agents"]
+                    logger.info(f"Loaded {len(agents_storage['agents'])} agents from storage file")
+                else:
+                    logger.warning("Invalid agents storage file format")
+        else:
+            logger.info("No agents storage file found, will scan directories")
+    except Exception as e:
+        logger.error(f"Error loading agents storage file: {e}")
+
+# Load existing agents at startup
+_load_agents_from_file()
+_load_existing_agents()
+
 # JSONL storage setup
 DATA_DIR = Path(__file__).with_name("data")
 try:
@@ -369,6 +500,9 @@ def _create_agent_from_yaml(yaml_content: str, yaml_file_path: str) -> dict:
         agents_storage["agents"].append(agent_info)
         logger.info(f"Created agent: {agent_name} with ID: {agent_id}")
         
+        # Save agents to file for persistence
+        _save_agents_to_file()
+        
         return agent_info
         
     except Exception as e:
@@ -404,6 +538,9 @@ def _deploy_agent_to_testnet(agent_id: str) -> dict:
         agent["deployment_status"] = "success"
         agent["deployed_at"] = datetime.now(timezone.utc).isoformat()
         
+        # Save updated agent status to file
+        _save_agents_to_file()
+        
         logger.info(f"Successfully deployed agent {agent_id} to testnet with address: {testnet_address}")
         
         return {
@@ -416,6 +553,31 @@ def _deploy_agent_to_testnet(agent_id: str) -> dict:
         logger.error(f"Error deploying agent to testnet: {e}")
         return {"success": False, "error": str(e)}
 
+@app.route('/agents/refresh', methods=['POST'])
+def refresh_agents():
+    """Refresh the agents list by scanning YAML files again"""
+    try:
+        global agents_storage
+        
+        # Clear existing agents
+        original_count = len(agents_storage["agents"])
+        agents_storage["agents"] = []
+        
+        # Reload agents from YAML files
+        _load_existing_agents()
+        
+        new_count = len(agents_storage["agents"])
+        
+        return jsonify({
+            "status": "refreshed",
+            "agents_loaded": new_count,
+            "previous_count": original_count
+        })
+        
+    except Exception as e:
+        logger.error(f"Error refreshing agents: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/agents', methods=['GET'])
 def get_agents():
     """Get all agents from storage"""
@@ -426,6 +588,60 @@ def get_agents():
         })
     except Exception as e:
         logger.error(f"Error getting agents: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/agents/<agent_id>/generate', methods=['POST'])
+def generate_agent_from_yaml(agent_id):
+    """Generate Python agent from YAML file"""
+    try:
+        agent = next((a for a in agents_storage["agents"] if a["id"] == agent_id), None)
+        if not agent:
+            return jsonify({"error": "Agent not found"}), 404
+        
+        if agent["status"] == "generated":
+            return jsonify({"error": "Agent already generated"}), 400
+        
+        yaml_file_path = agent["yaml_file"]
+        if not yaml_file_path or not Path(yaml_file_path).exists():
+            return jsonify({"error": "YAML file not found"}), 404
+        
+        # Generate agent using yamlToFetch
+        try:
+            import sys
+            dag_dir = Path(__file__).parent.parent / "dag"
+            sys.path.append(str(dag_dir))
+            from yamlToFetch import generate_agent_from_yaml
+            
+            # Create agent directory
+            agents_dir = Path(__file__).parent / "agents"
+            agent_dir_name = f"agent_{agent_id}"
+            agent_dir = agents_dir / agent_dir_name
+            agent_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Generate agent using yamlToFetch
+            generate_agent_from_yaml(yaml_file_path, "generated_agent.py", str(agent_dir))
+            logger.info(f"Generated agent from YAML: {agent['name']}")
+            
+            # Update agent status
+            agent["status"] = "generated"
+            agent["agent_directory"] = str(agent_dir)
+            agent["deployment_status"] = "generated"
+            
+            # Save updated agent status
+            _save_agents_to_file()
+            
+            return jsonify({
+                "status": "generated",
+                "agent_id": agent_id,
+                "agent_directory": str(agent_dir)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error generating agent from YAML: {e}")
+            return jsonify({"error": f"Error generating agent: {e}"}), 500
+        
+    except Exception as e:
+        logger.error(f"Error generating agent: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/agents/<agent_id>/deploy', methods=['POST'])
@@ -568,6 +784,8 @@ def delete_agent(agent_id):
         agents_storage["agents"] = [a for a in agents_storage["agents"] if a["id"] != agent_id]
         
         if len(agents_storage["agents"]) < original_count:
+            # Save updated agents to file
+            _save_agents_to_file()
             return jsonify({"status": "deleted", "agent_id": agent_id})
         else:
             return jsonify({"error": "Agent not found"}), 404
