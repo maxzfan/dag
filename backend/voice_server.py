@@ -3,6 +3,8 @@ import os
 import tempfile
 import uuid
 import json
+import subprocess
+import shutil
 from datetime import datetime, timezone
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
@@ -16,10 +18,46 @@ from pathlib import Path
 SYSTEM_PROMPT = Path(__file__).with_name("systemprompt3.md").read_text(encoding="utf-8")
 
 
-# Multi-agent prompts
-PROMPT_JOURNAL = Path(__file__).with_name("prompt_journal.md").read_text(encoding="utf-8") if (Path(__file__).with_name("prompt_journal.md")).exists() else None
-PROMPT_DETAIL = Path(__file__).with_name("prompt_detail.md").read_text(encoding="utf-8") if (Path(__file__).with_name("prompt_detail.md")).exists() else None
-PROMPT_YAML = Path(__file__).with_name("prompt_yaml.md").read_text(encoding="utf-8") if (Path(__file__).with_name("prompt_yaml.md")).exists() else None
+# Multi-agent prompts - will be loaded dynamically from YAML
+PROMPT_JOURNAL = None
+PROMPT_DETAIL = None
+PROMPT_YAML = None
+
+# Dynamic prompt storage
+dynamic_prompts = {
+    "journal": None,
+    "detail": None,
+    "yaml": None
+}
+
+def _load_default_prompts():
+    """Load default prompts from markdown files at startup."""
+    global PROMPT_JOURNAL, PROMPT_DETAIL, PROMPT_YAML
+    
+    try:
+        # Load journal prompt
+        journal_file = Path(__file__).with_name("prompt_journal.md")
+        if journal_file.exists():
+            PROMPT_JOURNAL = journal_file.read_text(encoding="utf-8")
+            dynamic_prompts["journal"] = PROMPT_JOURNAL
+            logger.info("Loaded default journal prompt")
+        
+        # Load detail prompt
+        detail_file = Path(__file__).with_name("prompt_detail.md")
+        if detail_file.exists():
+            PROMPT_DETAIL = detail_file.read_text(encoding="utf-8")
+            dynamic_prompts["detail"] = PROMPT_DETAIL
+            logger.info("Loaded default detail prompt")
+        
+        # Load YAML prompt
+        yaml_file = Path(__file__).with_name("prompt_yaml.md")
+        if yaml_file.exists():
+            PROMPT_YAML = yaml_file.read_text(encoding="utf-8")
+            dynamic_prompts["yaml"] = PROMPT_YAML
+            logger.info("Loaded default YAML prompt")
+            
+    except Exception as e:
+        logger.error(f"Error loading default prompts: {e}")
 
 # Load environment variables
 load_dotenv()
@@ -30,6 +68,9 @@ CORS(app, origins=['http://localhost:8080', 'http://127.0.0.1:8080', 'http://loc
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Load default prompts at startup
+_load_default_prompts()
 
 # JSONL storage setup
 DATA_DIR = Path(__file__).with_name("data")
@@ -204,6 +245,18 @@ orchestrator_state = {
     "detail_spec": None,           # dict | None
 }
 
+# Agent management
+agents_storage = {
+    "agents": [],                  # List of created agents
+    "next_id": 1                   # Next agent ID
+}
+
+# Paths for DAG integration
+DAG_DIR = Path(__file__).parent.parent / "dag"
+YAML_TO_FETCH_SCRIPT = DAG_DIR / "yamlToFetch.py"
+DEPLOY_SCRIPT = DAG_DIR / "deploy.py"
+AGENTS_OUTPUT_DIR = Path(__file__).parent / "generated_agents"
+
 def _is_problem_heuristic(text: str) -> bool:
     """Lightweight keyword check to confirm the user's text actually indicates a problem.
     This reduces false positives from the Journal model.
@@ -234,6 +287,49 @@ def _extract_yaml_from_fence(text: str) -> str | None:
     if m:
         return m.group(1).strip()
     return None
+
+def _extract_prompts_from_yaml(yaml_content: str) -> dict:
+    """Extract prompts from YAML content and update dynamic prompts."""
+    try:
+        import yaml as yaml_lib
+        yaml_data = yaml_lib.safe_load(yaml_content)
+        
+        # Extract prompts from the YAML structure
+        prompts = {}
+        
+        # Look for prompts in various possible locations
+        if 'prompts' in yaml_data:
+            prompts = yaml_data['prompts']
+        elif 'system_prompts' in yaml_data:
+            prompts = yaml_data['system_prompts']
+        elif 'agent' in yaml_data and 'prompts' in yaml_data['agent']:
+            prompts = yaml_data['agent']['prompts']
+        
+        # Update dynamic prompts if found
+        if prompts:
+            if 'journal' in prompts:
+                dynamic_prompts['journal'] = prompts['journal']
+                global PROMPT_JOURNAL
+                PROMPT_JOURNAL = prompts['journal']
+                logger.info("Updated journal prompt from YAML")
+            
+            if 'detail' in prompts:
+                dynamic_prompts['detail'] = prompts['detail']
+                global PROMPT_DETAIL
+                PROMPT_DETAIL = prompts['detail']
+                logger.info("Updated detail prompt from YAML")
+            
+            if 'yaml' in prompts:
+                dynamic_prompts['yaml'] = prompts['yaml']
+                global PROMPT_YAML
+                PROMPT_YAML = prompts['yaml']
+                logger.info("Updated YAML prompt from YAML")
+        
+        return prompts
+        
+    except Exception as e:
+        logger.warning(f"Could not extract prompts from YAML: {e}")
+        return {}
 
 def _call_model_with_system(system_prompt: str, user_content: str, model: str = "anthropic/claude-3-haiku", max_tokens: int = 800, temperature: float = 0.2) -> str:
     headers = {
@@ -333,6 +429,108 @@ def _run_yaml(detail_spec: dict) -> tuple[str | None, str | None]:
     except Exception as e:
         logger.error(f"YAML model error: {e}")
         return "I need one more detail to finalize the YAML (service, schedule, or actions).", None
+
+def _create_agent_from_yaml(yaml_content: str) -> dict:
+    """Generate a Fetch.ai agent from YAML content using yamlToFetch.py."""
+    try:
+        # Ensure output directory exists
+        AGENTS_OUTPUT_DIR.mkdir(exist_ok=True)
+        
+        # Create unique agent directory
+        agent_id = str(uuid.uuid4())
+        agent_dir = AGENTS_OUTPUT_DIR / f"agent_{agent_id}"
+        agent_dir.mkdir(exist_ok=True)
+        
+        # Save YAML content to file
+        yaml_file = agent_dir / "agent_config.yaml"
+        with open(yaml_file, 'w') as f:
+            f.write(yaml_content)
+        
+        # Use yamlToFetch.py to generate the agent
+        try:
+            # Import and use the existing function from yamlToFetch.py
+            import sys
+            sys.path.append(str(DAG_DIR))
+            from yamlToFetch import generate_agent_from_yaml
+            
+            # Generate agent using the existing function
+            generate_agent_from_yaml(str(yaml_file), "generated_agent.py", str(agent_dir))
+            
+            logger.info(f"Agent generated successfully in {agent_dir}")
+            
+        except Exception as e:
+            logger.error(f"Error running yamlToFetch.py: {e}")
+            return {"error": f"Error generating agent: {e}"}
+        
+        # Extract agent info from generated files
+        agent_info = {
+            "id": agent_id,
+            "name": "Generated Agent",
+            "description": "AI-powered agent created from your requirements",
+            "icon": "🤖",
+            "status": "generated",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "directory": str(agent_dir),
+            "yaml_content": yaml_content
+        }
+        
+        # Try to extract agent name from YAML
+        try:
+            import yaml as yaml_lib
+            with open(yaml_file, 'r') as f:
+                yaml_data = yaml_lib.safe_load(f)
+                if 'agent' in yaml_data and 'name' in yaml_data['agent']:
+                    agent_info['name'] = yaml_data['agent']['name']
+                if 'agent' in yaml_data and 'description' in yaml_data['agent']:
+                    agent_info['description'] = yaml_data['agent']['description']
+        except Exception as e:
+            logger.warning(f"Could not extract agent name from YAML: {e}")
+        
+        # Add to agents storage
+        agents_storage["agents"].append(agent_info)
+        
+        return agent_info
+        
+    except Exception as e:
+        logger.error(f"Error creating agent from YAML: {e}")
+        return {"error": f"Error creating agent: {e}"}
+
+def _deploy_agent(agent_id: str) -> dict:
+    """Deploy an agent using the deploy.py script."""
+    try:
+        agent = next((a for a in agents_storage["agents"] if a["id"] == agent_id), None)
+        if not agent:
+            return {"error": "Agent not found"}
+        
+        agent_dir = agent["directory"]
+        
+        # Run deployment script
+        try:
+            result = subprocess.run([
+                'python', str(DEPLOY_SCRIPT),
+                agent_dir,
+                '--network', 'testnet',
+                '--setup'
+            ], capture_output=True, text=True, cwd=str(agent_dir))
+            
+            if result.returncode != 0:
+                logger.error(f"Agent deployment setup failed: {result.stderr}")
+                return {"error": f"Deployment setup failed: {result.stderr}"}
+            
+            # Update agent status
+            agent["status"] = "deployed"
+            agent["deployed_at"] = datetime.now(timezone.utc).isoformat()
+            
+            logger.info(f"Agent {agent_id} deployed successfully")
+            return {"success": True, "message": "Agent deployed successfully"}
+            
+        except Exception as e:
+            logger.error(f"Error deploying agent: {e}")
+            return {"error": f"Error deploying agent: {e}"}
+            
+    except Exception as e:
+        logger.error(f"Error in agent deployment: {e}")
+        return {"error": f"Error in agent deployment: {e}"}
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -522,6 +720,21 @@ def conversation():
                 missing, yaml_text = _run_yaml(spec)
                 if yaml_text:
                     ai_response = f"```yaml\n{yaml_text}\n```"
+                    
+                    # Extract prompts from YAML and update system
+                    _extract_prompts_from_yaml(yaml_text)
+                    
+                    # Auto-generate agent from YAML
+                    try:
+                        agent_info = _create_agent_from_yaml(yaml_text)
+                        if "error" not in agent_info:
+                            ai_response += f"\n\n🤖 **Agent Created!**\nI've generated a new agent called '{agent_info['name']}' based on your requirements. You can now interact with it in Agent mode."
+                        else:
+                            ai_response += f"\n\n⚠️ **Agent Generation Failed:** {agent_info['error']}"
+                    except Exception as e:
+                        logger.error(f"Error creating agent: {e}")
+                        ai_response += f"\n\n⚠️ **Agent Generation Failed:** {str(e)}"
+                    
                     # Reset orchestrator after success
                     orchestrator_state = {"phase": None, "pending_questions": None, "problem_brief": None, "detail_spec": None}
                 else:
@@ -544,6 +757,21 @@ def conversation():
                     missing, yaml_text = _run_yaml(spec)
                     if yaml_text:
                         ai_response = f"```yaml\n{yaml_text}\n```"
+                        
+                        # Extract prompts from YAML and update system
+                        _extract_prompts_from_yaml(yaml_text)
+                        
+                        # Auto-generate agent from YAML
+                        try:
+                            agent_info = _create_agent_from_yaml(yaml_text)
+                            if "error" not in agent_info:
+                                ai_response += f"\n\n🤖 **Agent Created!**\nI've generated a new agent called '{agent_info['name']}' based on your requirements. You can now interact with it in Agent mode."
+                            else:
+                                ai_response += f"\n\n⚠️ **Agent Generation Failed:** {agent_info['error']}"
+                        except Exception as e:
+                            logger.error(f"Error creating agent: {e}")
+                            ai_response += f"\n\n⚠️ **Agent Generation Failed:** {str(e)}"
+                        
                         orchestrator_state = {"phase": None, "pending_questions": None, "problem_brief": None, "detail_spec": None}
                     else:
                         orchestrator_state["pending_questions"] = [missing] if missing else None
@@ -827,6 +1055,44 @@ Summary:"""
         
     except Exception as e:
         logger.error(f"Error generating summary: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/prompts', methods=['GET'])
+def get_prompts():
+    """Get current dynamic prompts"""
+    try:
+        return jsonify({
+            "prompts": dynamic_prompts,
+            "active_prompts": {
+                "journal": PROMPT_JOURNAL,
+                "detail": PROMPT_DETAIL,
+                "yaml": PROMPT_YAML
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting prompts: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/prompts/update', methods=['POST'])
+def update_prompts():
+    """Update prompts from YAML content"""
+    try:
+        data = request.get_json()
+        yaml_content = data.get('yaml_content', '')
+        
+        if not yaml_content:
+            return jsonify({"error": "No YAML content provided"}), 400
+        
+        extracted_prompts = _extract_prompts_from_yaml(yaml_content)
+        
+        return jsonify({
+            "success": True,
+            "extracted_prompts": extracted_prompts,
+            "updated_prompts": dynamic_prompts
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating prompts: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
