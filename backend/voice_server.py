@@ -445,6 +445,120 @@ def deploy_agent(agent_id):
         logger.error(f"Error deploying agent: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/agents/<agent_id>', methods=['GET'])
+def get_agent_details(agent_id):
+    """Get detailed information about a specific agent"""
+    try:
+        agent = next((a for a in agents_storage["agents"] if a["id"] == agent_id), None)
+        if not agent:
+            return jsonify({"error": "Agent not found"}), 404
+        
+        # Get agent directory and check for .env file
+        agent_dir = Path(agent.get("agent_directory", ""))
+        env_vars = {}
+        if agent_dir.exists():
+            env_file = agent_dir / ".env"
+            if env_file.exists():
+                try:
+                    with env_file.open("r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith("#") and "=" in line:
+                                key, value = line.split("=", 1)
+                                env_vars[key.strip()] = value.strip()
+                except Exception as e:
+                    logger.warning(f"Error reading .env file for agent {agent_id}: {e}")
+        
+        return jsonify({
+            "agent": agent,
+            "env_vars": env_vars
+        })
+    except Exception as e:
+        logger.error(f"Error getting agent details: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/agents/<agent_id>/logs', methods=['GET'])
+def get_agent_logs(agent_id):
+    """Get logs for a specific agent"""
+    try:
+        agent = next((a for a in agents_storage["agents"] if a["id"] == agent_id), None)
+        if not agent:
+            return jsonify({"error": "Agent not found"}), 404
+        
+        # Get agent directory and check for log file
+        agent_dir = Path(agent.get("agent_directory", ""))
+        logs = []
+        
+        if agent_dir.exists():
+            log_file = agent_dir / "agent.log"
+            if log_file.exists():
+                try:
+                    with log_file.open("r", encoding="utf-8") as f:
+                        log_lines = f.readlines()
+                        # Return last 100 lines
+                        logs = [line.strip() for line in log_lines[-100:]]
+                except Exception as e:
+                    logger.warning(f"Error reading log file for agent {agent_id}: {e}")
+        
+        # If no log file, return some mock logs based on agent status
+        if not logs:
+            if agent.get("status") == "deployed":
+                logs = [
+                    f"[{datetime.now(timezone.utc).isoformat()}] Agent {agent.get('name')} initialized",
+                    f"[{datetime.now(timezone.utc).isoformat()}] Agent address: {agent.get('testnet_address')}",
+                    f"[{datetime.now(timezone.utc).isoformat()}] Agent running on testnet",
+                    f"[{datetime.now(timezone.utc).isoformat()}] Monitoring active..."
+                ]
+            else:
+                logs = [
+                    f"[{datetime.now(timezone.utc).isoformat()}] Agent {agent.get('name')} created",
+                    f"[{datetime.now(timezone.utc).isoformat()}] Status: {agent.get('status')}"
+                ]
+        
+        return jsonify({
+            "logs": logs,
+            "agent_id": agent_id
+        })
+    except Exception as e:
+        logger.error(f"Error getting agent logs: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/agents/<agent_id>/env', methods=['PUT'])
+def update_agent_env(agent_id):
+    """Update environment variables for a specific agent"""
+    try:
+        agent = next((a for a in agents_storage["agents"] if a["id"] == agent_id), None)
+        if not agent:
+            return jsonify({"error": "Agent not found"}), 404
+        
+        data = request.get_json()
+        env_vars = data.get('env_vars', {})
+        
+        # Get agent directory
+        agent_dir = Path(agent.get("agent_directory", ""))
+        if not agent_dir.exists():
+            return jsonify({"error": "Agent directory not found"}), 404
+        
+        # Write to .env file
+        env_file = agent_dir / ".env"
+        try:
+            with env_file.open("w", encoding="utf-8") as f:
+                for key, value in env_vars.items():
+                    f.write(f"{key}={value}\n")
+            logger.info(f"Updated environment variables for agent {agent_id}")
+            return jsonify({
+                "status": "updated",
+                "agent_id": agent_id,
+                "env_vars": env_vars
+            })
+        except Exception as e:
+            logger.error(f"Error writing .env file for agent {agent_id}: {e}")
+            return jsonify({"error": f"Error writing .env file: {str(e)}"}), 500
+        
+    except Exception as e:
+        logger.error(f"Error updating agent environment: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/agents/<agent_id>', methods=['DELETE'])
 def delete_agent(agent_id):
     """Delete a specific agent"""

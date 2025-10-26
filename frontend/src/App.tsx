@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Mic, MessageSquare, History, Trash2, Bot, RefreshCw } from 'lucide-react'
+import { AgentDashboard } from '@/components/AgentDashboard'
 
 interface Message {
   id: string
@@ -57,6 +58,7 @@ interface JournalEntry {
 function App() {
   const [mode, setMode] = useState<'agent' | 'journal'>('journal')
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
+  const [showAgentDashboard, setShowAgentDashboard] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [status, setStatus] = useState('Click to start recording')
   const [messages, setMessages] = useState<Message[]>([])
@@ -573,6 +575,17 @@ function App() {
       {/* Main Content */}
       <div className="flex flex-1 flex-col gap-4 p-4">
         {mode === 'agent' ? (
+          showAgentDashboard && selectedAgent ? (
+            /* Agent Dashboard View */
+            <AgentDashboard
+              agentId={selectedAgent}
+              onBack={() => {
+                setShowAgentDashboard(false)
+                setSelectedAgent(null)
+              }}
+              apiBaseUrl={apiBaseUrl}
+            />
+          ) : (
           /* Agent Mode - Dashboard Layout */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
             {/* Left Side - Voice Button */}
@@ -755,7 +768,10 @@ function App() {
                                   ? 'bg-gradient-to-r from-amber-50 to-amber-100 border-amber-300 shadow-md ring-2 ring-amber-200'
                                   : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:shadow-sm hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                               }`}
-                              onClick={() => setSelectedAgent(selectedAgent === agent.id ? null : agent.id)}
+                              onClick={() => {
+                                setSelectedAgent(agent.id)
+                                setShowAgentDashboard(true)
+                              }}
                             >
                               <div className="relative">
                                 <div className="text-2xl">{agent.icon}</div>
@@ -827,6 +843,7 @@ function App() {
               </Card>
             </div>
           </div>
+          )
         ) : (
           /* Journal Mode - Current UI */
           <>
