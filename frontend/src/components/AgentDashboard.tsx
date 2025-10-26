@@ -136,18 +136,19 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
   }, [autoRefresh, activeTab, agentId])
 
   const getStatusColor = (status: string) => {
-    if (status === 'deployed') return 'text-green-600 bg-green-50'
-    if (status === 'generated') return 'text-yellow-600 bg-yellow-50'
-    if (status === 'error') return 'text-red-600 bg-red-50'
-    return 'text-gray-600 bg-gray-50'
+    if (status === 'deployed') return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20'
+    if (status === 'generated') return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20'
+    if (status === 'yaml_only') return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20'
+    if (status === 'error') return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'
+    return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800'
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-gray-400" />
-          <p className="text-gray-500">Loading agent details...</p>
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-gray-400 dark:text-gray-500" />
+          <p className="text-gray-500 dark:text-gray-400">Loading agent details...</p>
         </div>
       </div>
     )
@@ -155,9 +156,9 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
 
   if (!agent) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <p className="text-gray-500">Agent not found</p>
+          <p className="text-gray-500 dark:text-gray-400">Agent not found</p>
           <Button onClick={onBack} className="mt-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Agents
@@ -177,7 +178,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
               onClick={onBack}
               variant="outline"
               size="sm"
-              className="text-gray-600 hover:text-gray-800"
+              className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
@@ -205,7 +206,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
         <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
           {agent.testnet_address && (
             <div>
-              <span className="text-gray-500">Address:</span>
+              <span className="text-gray-500 dark:text-gray-400">Address:</span>
               <span className="ml-2 font-mono text-gray-900 dark:text-white">
                 {agent.testnet_address}
               </span>
@@ -213,7 +214,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
           )}
           {agent.created_at && (
             <div>
-              <span className="text-gray-500">Created:</span>
+              <span className="text-gray-500 dark:text-gray-400">Created:</span>
               <span className="ml-2 text-gray-900 dark:text-white">
                 {new Date(agent.created_at).toLocaleString()}
               </span>
@@ -221,7 +222,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
           )}
           {agent.deployed_at && (
             <div>
-              <span className="text-gray-500">Deployed:</span>
+              <span className="text-gray-500 dark:text-gray-400">Deployed:</span>
               <span className="ml-2 text-gray-900 dark:text-white">
                 {new Date(agent.deployed_at).toLocaleString()}
               </span>
@@ -257,12 +258,12 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'logs' && (
-          <Card className="h-full rounded-none border-0">
-            <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+          <Card className="h-full rounded-none border-0 bg-white dark:bg-gray-800">
+            <CardHeader className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Agent Logs</CardTitle>
+                <CardTitle className="text-lg text-gray-900 dark:text-white">Agent Logs</CardTitle>
                 <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-2 text-sm text-gray-600">
+                  <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                     <input
                       type="checkbox"
                       checked={autoRefresh}
@@ -275,7 +276,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
                     onClick={loadLogs}
                     variant="outline"
                     size="sm"
-                    className="gap-2"
+                    className="gap-2 dark:border-gray-600 dark:hover:bg-gray-700"
                   >
                     <RefreshCw className="w-4 h-4" />
                     Refresh
@@ -283,11 +284,11 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-0 h-[calc(100%-5rem)]">
+            <CardContent className="p-0 h-[calc(100%-5rem)] bg-white dark:bg-gray-800">
               <ScrollArea className="h-full">
-                <div className="p-4 font-mono text-sm space-y-1">
+                <div className="p-4 font-mono text-sm space-y-1 bg-white dark:bg-gray-800">
                   {logs.length === 0 ? (
-                    <div className="text-center text-gray-500 py-8">
+                    <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                       No logs available
                     </div>
                   ) : (
@@ -307,16 +308,16 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
         )}
 
         {activeTab === 'env' && (
-          <Card className="h-full rounded-none border-0">
-            <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+          <Card className="h-full rounded-none border-0 bg-white dark:bg-gray-800">
+            <CardHeader className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">Environment Variables</CardTitle>
+                <CardTitle className="text-lg text-gray-900 dark:text-white">Environment Variables</CardTitle>
                 <div className="flex items-center gap-2">
                   <Button
                     onClick={addEnvVar}
                     variant="outline"
                     size="sm"
-                    className="gap-2"
+                    className="gap-2 dark:border-gray-600 dark:hover:bg-gray-700"
                   >
                     <Plus className="w-4 h-4" />
                     Add Variable
@@ -333,14 +334,14 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-4 h-[calc(100%-5rem)]">
+            <CardContent className="p-4 h-[calc(100%-5rem)] bg-white dark:bg-gray-800">
               <ScrollArea className="h-full">
                 <div className="space-y-3">
                   {envVars.length === 0 ? (
-                    <div className="text-center text-gray-500 py-8">
+                    <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                       No environment variables configured
                       <br />
-                      <Button onClick={addEnvVar} variant="outline" size="sm" className="mt-4">
+                      <Button onClick={addEnvVar} variant="outline" size="sm" className="mt-4 dark:border-gray-600 dark:hover:bg-gray-700">
                         <Plus className="w-4 h-4 mr-2" />
                         Add Your First Variable
                       </Button>
@@ -352,21 +353,21 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
                           placeholder="KEY"
                           value={envVar.key}
                           onChange={(e) => updateEnvVar(index, 'key', e.target.value)}
-                          className="flex-1 font-mono"
+                          className="flex-1 font-mono dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         />
-                        <span className="text-gray-400">=</span>
+                        <span className="text-gray-400 dark:text-gray-500">=</span>
                         <Input
                           placeholder="value"
                           value={envVar.value}
                           onChange={(e) => updateEnvVar(index, 'value', e.target.value)}
-                          className="flex-1 font-mono"
+                          className="flex-1 font-mono dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                           type="text"
                         />
                         <Button
                           onClick={() => removeEnvVar(index)}
                           variant="outline"
                           size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 dark:border-red-600"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
