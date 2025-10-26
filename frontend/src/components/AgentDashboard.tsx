@@ -159,7 +159,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
       <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <p className="text-gray-500 dark:text-gray-400">Agent not found</p>
-          <Button onClick={onBack} className="mt-4">
+          <Button onClick={onBack} className="mt-4 bg-white hover:bg-gray-50 text-gray-700 border-gray-300">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Agents
           </Button>
@@ -178,13 +178,17 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
               onClick={onBack}
               variant="outline"
               size="sm"
-              className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
+              className="text-gray-600 hover:text-gray-800 bg-white hover:bg-gray-50 border-gray-300"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
             <div className="flex items-center gap-3">
-              <span className="text-3xl">{agent.icon}</span>
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg">
+                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                   {agent.name}
@@ -238,7 +242,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
             onClick={() => setActiveTab('logs')}
             variant={activeTab === 'logs' ? 'default' : 'ghost'}
             size="sm"
-            className="gap-2"
+            className="gap-2 bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
           >
             <Terminal className="w-4 h-4" />
             Logs
@@ -247,7 +251,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
             onClick={() => setActiveTab('env')}
             variant={activeTab === 'env' ? 'default' : 'ghost'}
             size="sm"
-            className="gap-2"
+            className="gap-2 bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
           >
             <Settings className="w-4 h-4" />
             Environment Variables
@@ -276,7 +280,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
                     onClick={loadLogs}
                     variant="outline"
                     size="sm"
-                    className="gap-2 dark:border-gray-600 dark:hover:bg-gray-700"
+                    className="gap-2 bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
                   >
                     <RefreshCw className="w-4 h-4" />
                     Refresh
@@ -317,7 +321,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
                     onClick={addEnvVar}
                     variant="outline"
                     size="sm"
-                    className="gap-2 dark:border-gray-600 dark:hover:bg-gray-700"
+                    className="gap-2 bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
                   >
                     <Plus className="w-4 h-4" />
                     Add Variable
@@ -326,7 +330,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
                     onClick={saveEnvVars}
                     disabled={saving}
                     size="sm"
-                    className="gap-2"
+                    className="gap-2 bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
                   >
                     <Save className="w-4 h-4" />
                     {saving ? 'Saving...' : 'Save Changes'}
@@ -341,7 +345,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
                     <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                       No environment variables configured
                       <br />
-                      <Button onClick={addEnvVar} variant="outline" size="sm" className="mt-4 dark:border-gray-600 dark:hover:bg-gray-700">
+                      <Button onClick={addEnvVar} variant="outline" size="sm" className="mt-4 bg-white hover:bg-gray-50 text-gray-700 border-gray-300">
                         <Plus className="w-4 h-4 mr-2" />
                         Add Your First Variable
                       </Button>
@@ -367,7 +371,7 @@ export const AgentDashboard: React.FC<AgentDashboardProps> = ({ agentId, onBack,
                           onClick={() => removeEnvVar(index)}
                           variant="outline"
                           size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 dark:border-red-600"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 bg-white border-red-300"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
