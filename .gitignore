@@ -80,6 +80,8 @@ test_audio.*
 
 # backend data
 backend/data/
+backend/yaml/
+backend/agents_storage.json
 
 # git keys
 gitkey

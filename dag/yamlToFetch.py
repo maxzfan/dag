@@ -114,6 +114,7 @@ class LLMHelper:
         self.model = "{model}"
         api_key_env = "{llm_config.get('api_key_env', 'OPENAI_API_KEY')}"
         self.api_key = os.getenv(api_key_env)
+        self.system_prompts = llm_config.get('system_prompts', {})
         
         if not self.api_key:
             raise ValueError(f"Missing API key: {{api_key_env}}")
@@ -126,6 +127,8 @@ class LLMHelper:
     
     async def call_llm(self, prompt: str, system_prompt: str = None, context: List[Dict] = None) -> str:
         \"\"\"Call LLM with given prompt\"\"\"
+        if system_prompt is None:
+            system_prompt = self.system_prompts.get("default")
         messages = []
         
         if system_prompt:
@@ -157,6 +160,8 @@ class LLMHelper:
     
     async def call_llm(self, prompt: str, system_prompt: str = None, context: List[Dict] = None) -> str:
         \"\"\"Call LLM via OpenRouter with given prompt\"\"\"
+        if system_prompt is None:
+            system_prompt = self.system_prompts.get("default")
         messages = []
         
         if system_prompt:
@@ -174,8 +179,8 @@ class LLMHelper:
                 temperature={llm_config.get('config', {}).get('temperature', 0.7)},
                 max_tokens={llm_config.get('config', {}).get('max_tokens', 1000)},
                 extra_headers={{
-                    "HTTP-Referer": "https://fetch.ai",  # Optional: Replace with your site
-                    "X-Title": "Fetch.ai Agent"  # Optional: Replace with your app name
+                    "HTTP-Referer": "https://fetch.ai",
+                    "X-Title": "Fetch.ai Agent"
                 }}
             )
             return response.choices[0].message.content
@@ -186,7 +191,9 @@ class LLMHelper:
         code += f"""        self.client = anthropic.Anthropic(api_key=self.api_key)
     
     async def call_llm(self, prompt: str, system_prompt: str = None, context: List[Dict] = None) -> str:
-        \"\"\"Call LLM with given prompt\"\"\"
+        """Call LLM with given prompt"""
+        if system_prompt is None:
+            system_prompt = self.system_prompts.get("default")
         messages = []
         
         if context:
@@ -329,14 +336,15 @@ def generate_interval_tasks(intervals: List[Dict[str, Any]]) -> str:
         func_name = interval['function_name']
         description = interval.get('description', '')
         uses_llm = interval.get('uses_llm', False)
-        custom_impl = interval.get('custom_implementation', '')
+        custom_impl = interval.get('custom_implementation', '') or interval.get('task_logic', '')
+        llm_task = interval.get('llm_task', {})
         
         task_code = f"""
-@agent.on_interval(period={period})
+@{"agent"}.on_interval(period={period})
 async def {func_name}(ctx: Context):
-    \"\"\"
+    """
     {description}
-    \"\"\"
+    """
     ctx.logger.info("Running {func_name}...")
     
 """
@@ -347,6 +355,21 @@ async def {func_name}(ctx: Context):
             indented_custom = '\n'.join('    ' + line if line.strip() else '' 
                                        for line in custom_impl.strip().split('\n'))
             task_code += indented_custom + "\n"
+        elif llm_task:
+            prompt_template = llm_task.get('prompt_template', '')
+            system_key = llm_task.get('system_prompt_key')
+            task_code += (
+                "    system_prompt = None\n"
+                f"    system_key = {repr(system_key)}\n"
+                "    try:\n"
+                "        if hasattr(llm_helper, 'system_prompts') and system_key:\n"
+                "            system_prompt = llm_helper.system_prompts.get(system_key)\n"
+                "    except Exception:\n"
+                "        system_prompt = None\n"
+                f"    prompt = {repr(prompt_template)}\n"
+                "    response = await llm_helper.call_llm(prompt=prompt, system_prompt=system_prompt)\n"
+                "    ctx.logger.info(f\"LLM task output: {response[:200]}\")\n"
+            )
         elif uses_llm:
             task_code += """    # Example: Process LLM queue
     # queue = ctx.storage.get("llm_queue", [])

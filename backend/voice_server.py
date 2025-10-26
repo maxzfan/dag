@@ -1050,7 +1050,7 @@ def conversation():
                         # Store YAML server-side; ask for confirmation instead of sending YAML
                         orchestrator_state["ready_yaml"] = yaml_text
                         orchestrator_state["phase"] = "yaml"
-                        orchestrator_state["pending_questions"] = ["I have enough information to generate the YAML. Should I proceed to generate it now?"]
+                        orchestrator_state["pending_questions"] = ["I have enough information to generate a YAML. Should I proceed to generate it now?"]
                         ai_response = orchestrator_state["pending_questions"][0]
                     else:
                         # Avoid repeating the same missing-info question
@@ -1117,7 +1117,7 @@ def conversation():
                         if yaml_text:
                             orchestrator_state["ready_yaml"] = yaml_text
                             orchestrator_state["phase"] = "yaml"
-                            orchestrator_state["pending_questions"] = ["I have enough information to generate the agent. Should I create and deploy it to testnet now?"]
+                            orchestrator_state["pending_questions"] = ["I have enough information to generate an agent to assist with this task. Should I create and deploy it to testnet now?"]
                             ai_response = orchestrator_state["pending_questions"][0]
                         else:
                             orchestrator_state["pending_questions"] = [missing] if missing else None
