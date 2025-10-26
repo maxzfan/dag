@@ -182,6 +182,25 @@ function App() {
     }
   }
 
+  const generateAgent = async (agentId: string) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/agents/${agentId}/generate`, {
+        method: 'POST'
+      })
+      if (response.ok) {
+        // Reload agents to update status
+        await loadAgents()
+        setStatus('Agent generated successfully!')
+      } else {
+        const error = await response.json()
+        setStatus(`Generation failed: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error generating agent:', error)
+      setStatus('Error generating agent')
+    }
+  }
+
   const deployAgent = async (agentId: string) => {
     try {
       const response = await fetch(`${apiBaseUrl}/agents/${agentId}/deploy`, {
@@ -630,7 +649,7 @@ function App() {
                     onClick={() => setShowAgentChatHistory(!showAgentChatHistory)}
                     variant="outline"
                     size="sm"
-                    className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 bg-white border-gray-300"
                   >
                     <MessageSquare className="w-4 h-4 mr-2" />
                     Chat History
@@ -723,7 +742,7 @@ function App() {
                       onClick={loadAgents}
                       variant="outline"
                       size="sm"
-                      className="text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                      className="text-gray-600 hover:text-gray-800 hover:bg-gray-50 bg-white border-gray-300"
                     >
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Refresh
@@ -743,14 +762,17 @@ function App() {
                         </p>
                       </div>
                     ) : (
-                      <div className="space-y-2">
-                        {availableAgents.map((agent) => {
+                      <ScrollArea className="h-full">
+                        <div className="space-y-2 pr-4">
+                          {availableAgents.map((agent) => {
                           // Determine status and color based on agent data
                           const getStatusInfo = (agent: any) => {
                             if (agent.deployment_status === 'success' || agent.status === 'deployed') {
                               return { status: 'Active', color: 'bg-green-500', textColor: 'text-green-700', bgColor: 'bg-green-50' }
                             } else if (agent.status === 'generated' || agent.deployment_status === 'pending') {
                               return { status: 'Pending', color: 'bg-yellow-500', textColor: 'text-yellow-700', bgColor: 'bg-yellow-50' }
+                            } else if (agent.status === 'yaml_only') {
+                              return { status: 'YAML Ready', color: 'bg-blue-500', textColor: 'text-blue-700', bgColor: 'bg-blue-50' }
                             } else if (agent.status === 'error' || agent.deployment_status === 'failed') {
                               return { status: 'Error', color: 'bg-red-500', textColor: 'text-red-700', bgColor: 'bg-red-50' }
                             } else {
@@ -774,7 +796,7 @@ function App() {
                               }}
                             >
                               <div className="relative">
-                                <div className="text-2xl">{agent.icon}</div>
+                                <Bot className="w-8 h-8 text-gray-600 dark:text-gray-400" />
                                 {selectedAgent === agent.id && (
                                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
                                     <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -807,6 +829,19 @@ function App() {
                               <div className="flex items-center gap-2">
                                 <div className={`w-3 h-3 rounded-full ${statusInfo.color} animate-pulse`}></div>
                                 <div className="flex gap-2">
+                                  {agent.status === 'yaml_only' && (
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        generateAgent(agent.id)
+                                      }}
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs px-3 py-1 bg-white hover:bg-gray-50 text-green-700 border-green-300"
+                                    >
+                                      Generate
+                                    </Button>
+                                  )}
                                   {agent.status === 'generated' && (
                                     <Button
                                       onClick={(e) => {
@@ -815,7 +850,7 @@ function App() {
                                       }}
                                       size="sm"
                                       variant="outline"
-                                      className="text-xs px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                                      className="text-xs px-3 py-1 bg-white hover:bg-gray-50 text-blue-700 border-blue-300"
                                     >
                                       Deploy
                                     </Button>
@@ -827,7 +862,7 @@ function App() {
                                     }}
                                     size="sm"
                                     variant="outline"
-                                    className="text-xs px-3 py-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                    className="text-xs px-3 py-1 text-red-600 hover:text-red-700 hover:bg-red-50 bg-white border-red-300"
                                   >
                                     Delete
                                   </Button>
@@ -836,7 +871,8 @@ function App() {
                             </div>
                           )
                         })}
-                      </div>
+                        </div>
+                      </ScrollArea>
                     )}
                   </div>
                 </CardContent>
@@ -891,6 +927,7 @@ function App() {
                   variant="outline"
                   size="sm"
                   disabled={messages.length === 0 || isSaving}
+                  className="bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
                 >
                   {isSaving ? 'Saving...' : 'Save Journal'}
                 </Button>
@@ -899,7 +936,7 @@ function App() {
                   variant="outline"
                   size="sm"
                   disabled={isSaving}
-                  className="text-black hover:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="text-gray-700 hover:text-gray-800 hover:bg-gray-50 bg-white border-gray-300"
                 >
                   New Chat
                 </Button>
@@ -908,7 +945,7 @@ function App() {
                   variant="outline"
                   size="sm"
                   disabled={isSaving}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-300"
                 >
                   Reset
                 </Button>
@@ -985,7 +1022,7 @@ function App() {
                                 e.stopPropagation()
                                 deleteJournalEntry(entry.id)
                               }}
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -1023,7 +1060,7 @@ function App() {
                       onClick={() => showConversationSummary(selectedEntry)}
                       variant="outline"
                       size="sm"
-                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 bg-white border-blue-300"
                     >
                       View Summary
                     </Button>
@@ -1104,7 +1141,7 @@ function App() {
                 onClick={() => setShowSummary(false)}
                 variant="ghost"
                 size="sm"
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 hover:text-gray-700 bg-white"
               >
                 ✕
               </Button>
@@ -1116,7 +1153,7 @@ function App() {
               <Button
                 onClick={() => setShowSummary(false)}
                 variant="outline"
-                className="text-gray-600 hover:text-gray-800"
+                className="text-gray-600 hover:text-gray-800 bg-white hover:bg-gray-50 border-gray-300"
               >
                 Close
               </Button>
