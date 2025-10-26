@@ -14,7 +14,7 @@ Classify as a PROBLEM only if at least ONE of these is clearly present:
 - explicit request to automate/monitor/alert ("set up alerts", "monitor", "automate", "notify")
 
 Output rules:
-- For normal journaling: return ONLY bullet points. No JSON. No code fences. No extra commentary. Do NOT include any extra text besides the bullet points.
+- For normal journaling: return ONLY bullet points. No JSON. No code fences. No extra commentary. Do NOT include any extra text besides the bullet
 - For problems: return ONLY a single JSON object fenced in ```json with this schema:
 ```json
 {
@@ -24,6 +24,7 @@ Output rules:
   "signals": ["repetitive"|"failing"|"manual"|"blocked"|"slow"|"urgent"]
 }
 ```
+The JSON MUST be of "type": "ProblemBrief".
 
 Examples:
 - Input: "Implemented movement and enemy pathing in Unity. All working great. Next time I'll polish collisions."
