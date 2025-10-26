@@ -506,9 +506,9 @@ def conversation():
                         orchestrator_state["phase"] = "yaml"
                         ai_response = missing or "I need one more detail to finish the YAML."
                 else:
-                    orchestrator_state["pending_questions"] = [journal_text] if journal_text else None
+                    orchestrator_state["pending_questions"] = [follow_up] if follow_up else None
                     orchestrator_state["phase"] = "detail"
-                    ai_response = journal_text or "A quick question to clarify the problem."
+                    ai_response = follow_up or "A quick question to clarify the problem."
             else:
                 # Regular journaling; ensure no code fences slip through
                 ai_response = (journal_text or "Noted.").replace("```", "")
