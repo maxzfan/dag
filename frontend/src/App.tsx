@@ -182,6 +182,25 @@ function App() {
     }
   }
 
+  const generateAgent = async (agentId: string) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/agents/${agentId}/generate`, {
+        method: 'POST'
+      })
+      if (response.ok) {
+        // Reload agents to update status
+        await loadAgents()
+        setStatus('Agent generated successfully!')
+      } else {
+        const error = await response.json()
+        setStatus(`Generation failed: ${error.error}`)
+      }
+    } catch (error) {
+      console.error('Error generating agent:', error)
+      setStatus('Error generating agent')
+    }
+  }
+
   const deployAgent = async (agentId: string) => {
     try {
       const response = await fetch(`${apiBaseUrl}/agents/${agentId}/deploy`, {
@@ -751,6 +770,8 @@ function App() {
                               return { status: 'Active', color: 'bg-green-500', textColor: 'text-green-700', bgColor: 'bg-green-50' }
                             } else if (agent.status === 'generated' || agent.deployment_status === 'pending') {
                               return { status: 'Pending', color: 'bg-yellow-500', textColor: 'text-yellow-700', bgColor: 'bg-yellow-50' }
+                            } else if (agent.status === 'yaml_only') {
+                              return { status: 'YAML Ready', color: 'bg-blue-500', textColor: 'text-blue-700', bgColor: 'bg-blue-50' }
                             } else if (agent.status === 'error' || agent.deployment_status === 'failed') {
                               return { status: 'Error', color: 'bg-red-500', textColor: 'text-red-700', bgColor: 'bg-red-50' }
                             } else {
@@ -807,6 +828,19 @@ function App() {
                               <div className="flex items-center gap-2">
                                 <div className={`w-3 h-3 rounded-full ${statusInfo.color} animate-pulse`}></div>
                                 <div className="flex gap-2">
+                                  {agent.status === 'yaml_only' && (
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        generateAgent(agent.id)
+                                      }}
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs px-3 py-1 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                                    >
+                                      Generate
+                                    </Button>
+                                  )}
                                   {agent.status === 'generated' && (
                                     <Button
                                       onClick={(e) => {
