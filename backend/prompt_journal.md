@@ -14,7 +14,7 @@ Classify as a PROBLEM only if at least ONE of these is clearly present:
 - explicit request to automate/monitor/alert ("set up alerts", "monitor", "automate", "notify")
 
 Output rules:
-- For normal journaling: return ONLY bullet points. No JSON. No code fences. No extra commentary. Do NOT include any extra text besides the bullet
+- For normal journaling: return ONLY bullet points. No JSON. No code fences. No extra commentary. Do NOT include any extra text besides the bullet points.
 - For problems: return ONLY a single JSON object fenced in ```json with this schema:
 ```json
 {
@@ -39,7 +39,7 @@ Examples:
 {
   "type": "ProblemBrief",
   "category": "ci_cd",
-  "summary": "GitHub Actions job randomly fails",
+  "summary": "GitHub Actions job randomly fails. Need to create Slack alerts.",
   "signals": ["failing"]
 }
 ```
